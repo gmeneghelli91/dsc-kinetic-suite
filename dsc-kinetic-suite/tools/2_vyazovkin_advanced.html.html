@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Kinetic Analysis - Vyazovkin Method</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #005a9c;
+            --secondary-color: #007bff;
+            --light-gray-color: #f8f9fa;
+            --gray-border-color: #dee2e6;
+            --text-color: #212529;
+            --white-color: #fff;
+        }
+        body {
+            font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+            margin: 0;
+            padding: 2em;
+            background-color: var(--light-gray-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+        h1, h2, h3 {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        h1 {
+            font-size: 2.2em;
+            text-align: center;
+            margin-bottom: 1em;
+        }
+        h2 {
+            border-bottom: 2px solid var(--gray-border-color);
+            padding-bottom: 0.5em;
+            margin-top: 1.5em;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: var(--white-color);
+            padding: 2em 3em;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+        }
+        .input-section, .results-section {
+            margin-bottom: 2em;
+        }
+        .file-input-group {
+            display: grid;
+            grid-template-columns: auto 1fr auto auto;
+            align-items: center;
+            gap: 1em;
+            margin-bottom: 1em;
+            padding: 1em;
+            border: 1px solid var(--gray-border-color);
+            border-radius: 8px;
+        }
+        .file-input-group label {
+            font-weight: 600;
+        }
+        input[type="file"], input[type="number"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 0.95em;
+        }
+        button {
+            background-color: var(--secondary-color);
+            color: var(--white-color);
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: background-color 0.2s ease;
+            display: block;
+            margin: 1.5em 0;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1.5em;
+        }
+        th, td {
+            border: 1px solid var(--gray-border-color);
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: var(--light-gray-color);
+            font-weight: 600;
+        }
+        .chart-container {
+            margin-top: 2em;
+            padding: 1em;
+            border: 1px solid var(--gray-border-color);
+            border-radius: 8px;
+        }
+        #summary {
+            background-color: #e9f5ff;
+            border-left: 5px solid var(--secondary-color);
+            padding: 1.5em;
+            margin-top: 1.5em;
+            border-radius: 0 8px 8px 0;
+        }
+        /* Style for math formula fraction */
+        .formula {
+            text-align: center;
+            font-size: 1.2em;
+            margin: 1.5em 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5em;
+        }
+        frac {
+            display: inline-flex;
+            flex-direction: column;
+            vertical-align: middle;
+            text-align: center;
+            margin: 0 0.2em;
+        }
+        numerator {
+            border-bottom: 1.5px solid var(--text-color);
+            padding: 0 0.4em;
+        }
+        denominator {
+            padding: 0 0.4em;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Advanced Kinetic Analysis: The Vyazovkin Method</h1>
+
+        <div id="theory">
+            <h2>Theoretical Introduction</h2>
+            <p>
+                Isoconversional kinetic analysis is a powerful method used to study the kinetics of transformations without assuming a specific reaction model. The core principle is that the reaction rate at a constant extent of conversion (&alpha;) is only a function of temperature. This allows for the determination of the activation energy (<i>E</i><sub>a</sub>) as a function of &alpha;.
+            </p>
+            <p>
+                The <strong>Vyazovkin method</strong> is a highly accurate, non-linear isoconversional technique. For a set of experiments at different heating rates (<i>&beta;</i><sub>i</sub>), the activation energy for any given conversion (<i>E</i><sub>&alpha;</sub>) is the value that minimizes the function:
+            </p>
+            <div class="formula">
+                <i>&Psi;</i>(<i>E</i><sub>&alpha;</sub>) = &sum;<sub>i=1</sub><sup>n</sup> &sum;<sub>j &ne; i</sub><sup>n</sup>
+                <frac>
+                    <numerator><i>I</i>(<i>E</i><sub>&alpha;</sub>, <i>T</i><sub>&alpha;,i</sub>) <i>&beta;</i><sub>j</sub></numerator>
+                    <denominator><i>I</i>(<i>E</i><sub>&alpha;</sub>, <i>T</i><sub>&alpha;,j</sub>) <i>&beta;</i><sub>i</sub></denominator>
+                </frac>
+            </div>
+            <p>
+                Here, <i>T</i><sub>&alpha;,i</sub> is the temperature for conversion &alpha; at heating rate <i>&beta;</i><sub>i</sub>, and <i>I</i>(<i>E, T</i>) is the numerically calculated temperature integral. A dependency of <i>E</i><sub>&alpha;</sub> on &alpha; indicates a complex, multi-step reaction. From these kinetics, one can predict the material's lifetime, such as the <strong><i>T</i><sub>d24</sub></strong>: the temperature at which it takes 24 hours to reach a small, critical degree of conversion (e.g., 5%).
+            </p>
+        </div>
+
+        <div class="input-section">
+            <h2>1. Load DSC Data</h2>
+            <p>Upload three DSC files (.txt or .csv). <strong>The parser will read column 3 for Temperature (&deg;C) and column 4 for Heat Flow (W/g)</strong>. Other columns are ignored. Text headers are automatically skipped.</p>
+            <div class="file-input-group">
+                <label for="file1">DSC 1:</label>
+                <input type="file" id="file1" accept=".txt,.csv">
+                <label for="beta1">Heating Rate (&deg;C/min):</label>
+                <input type="number" id="beta1" value="5">
+            </div>
+            <div class="file-input-group">
+                <label for="file2">DSC 2:</label>
+                <input type="file" id="file2" accept=".txt,.csv">
+                <label for="beta2">Heating Rate (&deg;C/min):</label>
+                <input type="number" id="beta2" value="10">
+            </div>
+            <div class="file-input-group">
+                <label for="file3">DSC 3:</label>
+                <input type="file" id="file3" accept=".txt,.csv">
+                <label for="beta3">Heating Rate (&deg;C/min):</label>
+                <input type="number" id="beta3" value="15">
+            </div>
+            <button onclick="runAnalysis()">Run Analysis</button>
+        </div>
+
+        <div id="results" class="results-section" style="display:none;">
+            <h2>2. DSC Data Visualization</h2>
+            <p>The chart displays the heat flow as a function of temperature for the three experiments.</p>
+            <div class="chart-container">
+                <canvas id="dscChart"></canvas>
+            </div>
+
+            <h3>DSC Data Summary</h3>
+            <table id="dscTable">
+                <thead>
+                    <tr>
+                        <th>Experiment</th>
+                        <th>Heating Rate (&deg;C/min)</th>
+                        <th>Peak Temperature (&deg;C)</th>
+                        <th>Total Enthalpy (J/g)</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+
+            <h2>3. Vyazovkin Analysis Results</h2>
+            <p>The activation energy (<i>E</i><sub>&alpha;</sub>) is calculated for different extents of conversion (&alpha;). The plot below shows how <i>E</i><sub>&alpha;</sub> changes as the reaction progresses.</p>
+            <div class="chart-container">
+                <canvas id="vyazovkinChart"></canvas>
+            </div>
+
+            <h3>Predicted Lifetime (<i>T</i><sub>d24</sub>)</h3>
+            <p id="td24Result"></p>
+
+            <h2>4. Summary and Comments</h2>
+            <div id="summary"></div>
+        </div>
+    </div>
+
+<script>
+// --- Chart Objects ---
+let dscChart, vyazovkinChart;
+
+// --- Main Analysis Function ---
+async function runAnalysis() {
+    const files = [document.getElementById('file1').files[0], document.getElementById('file2').files[0], document.getElementById('file3').files[0]];
+    const betas = [parseFloat(document.getElementById('beta1').value) / 60, parseFloat(document.getElementById('beta2').value) / 60, parseFloat(document.getElementById('beta3').value) / 60];
+
+    if (files.some(f => !f) || betas.some(b => isNaN(b))) {
+        alert("Please select three files and specify all heating rates.");
+        return;
+    }
+    try {
+        const dscData = await Promise.all(files.map(file => parseFile(file)));
+        const processedData = dscData.map((data, i) => processDscData(data, betas[i]));
+        displayDscChart(processedData);
+        displayDscTable(processedData);
+
+        const alphaValues = Array.from({ length: 19 }, (_, i) => 0.05 + i * 0.05);
+        const { Ea_vs_alpha, T_alpha_data } = calculateVyazovkin(processedData, alphaValues);
+        displayVyazovkinChart(alphaValues, Ea_vs_alpha);
+
+        const td24 = predictLifetime(0.05, T_alpha_data, Ea_vs_alpha, betas);
+        document.getElementById('td24Result').innerHTML = `The estimated temperature to reach 5% conversion in 24 hours (<strong><i>T</i><sub>d24</sub></strong>) is: <strong>${td24.toFixed(2)} &deg;C</strong>.`;
+        
+        generateSummary(processedData, Ea_vs_alpha, td24);
+        document.getElementById('results').style.display = 'block';
+    } catch (error) {
+        console.error("Analysis failed:", error);
+        alert(`An error occurred: ${error.message}`);
+    }
+}
+
+// --- File Parsing and Data Processing ---
+function parseFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const lines = e.target.result.split('\n').map(line => line.trim()).filter(line => {
+                if (!line) return false;
+                const firstVal = line.split(/[\s,;	]+/)[0];
+                return !isNaN(parseFloat(firstVal)) || line.match(/^[0-9,.\-Ee\s\t]+$/);
+            });
+            const data = lines.map(line => {
+                const parts = line.trim().split(/[\s,;	]+/);
+                const temp = parseFloat(parts[2]);
+                const heatFlow = parseFloat(parts[3]);
+                return { temp, heatFlow };
+            }).filter(d => !isNaN(d.temp) && !isNaN(d.heatFlow));
+            if (data.length === 0) {
+                reject(new Error(`Could not parse data from ${file.name}. Ensure Temperature is in column 3 and Heat Flow is in column 4.`));
+                return;
+            }
+            resolve(data);
+        };
+        reader.onerror = reject;
+        reader.readAsText(file);
+    });
+}
+
+function processDscData(rawData, beta) {
+    const baselineStart = rawData[0].heatFlow;
+    const baselineEnd = rawData[rawData.length - 1].heatFlow;
+    const data = rawData.map((d, i) => {
+        const baseline = baselineStart + (baselineEnd - baselineStart) * (i / (rawData.length - 1));
+        return { tempC: d.temp, tempK: d.temp + 273.15, heatFlow: d.heatFlow - baseline };
+    });
+    let peakTemp = 0, maxHeatFlow = -Infinity, totalEnthalpy = 0;
+    for (let i = 1; i < data.length; i++) {
+        if (data[i].heatFlow > maxHeatFlow) {
+            maxHeatFlow = data[i].heatFlow;
+            peakTemp = data[i].tempC;
+        }
+        const dt = (data[i].tempK - data[i - 1].tempK) / beta;
+        totalEnthalpy += (data[i].heatFlow + data[i - 1].heatFlow) / 2 * dt;
+    }
+    let cumulativeEnthalpy = 0;
+    for (let i = 1; i < data.length; i++) {
+        const dt = (data[i].tempK - data[i - 1].tempK) / beta;
+        cumulativeEnthalpy += (data[i].heatFlow + data[i - 1].heatFlow) / 2 * dt;
+        data[i].alpha = Math.max(0, Math.min(1, cumulativeEnthalpy / totalEnthalpy));
+    }
+    data[0].alpha = 0;
+    return { data, beta, peakTemp, totalEnthalpy };
+}
+
+// --- Vyazovkin Calculation ---
+function calculateVyazovkin(processedData, alphaValues) {
+    const T_alpha_data = {};
+    const Ea_vs_alpha = [];
+    alphaValues.forEach(alpha => {
+        T_alpha_data[alpha] = processedData.map(run => {
+            const upperIndex = run.data.findIndex(d => d.alpha >= alpha);
+            if (upperIndex <= 0) return run.data[0].tempK;
+            const lowerIndex = upperIndex - 1;
+            const d1 = run.data[lowerIndex], d2 = run.data[upperIndex];
+            if ((d2.alpha - d1.alpha) === 0) return d1.tempK;
+            return d1.tempK + (d2.tempK - d1.tempK) * (alpha - d1.alpha) / (d2.alpha - d1.alpha);
+        });
+    });
+    alphaValues.forEach(alpha => {
+        const temps = T_alpha_data[alpha];
+        const betas = processedData.map(p => p.beta);
+        const Ea = findMinimizingEa(temps, betas);
+        Ea_vs_alpha.push(Ea / 1000);
+    });
+    return { Ea_vs_alpha, T_alpha_data };
+}
+
+function findMinimizingEa(temps, betas) {
+    let minPsi = Infinity, bestEa = 0;
+    for (let Ea = 40000; Ea <= 300000; Ea += 1000) {
+        let psi = 0;
+        for (let i = 0; i < temps.length; i++) {
+            for (let j = 0; j < temps.length; j++) {
+                if (i === j) continue;
+                const I_i = tempIntegral(Ea, temps[i]);
+                const I_j = tempIntegral(Ea, temps[j]);
+                if (I_j === 0) continue;
+                psi += (I_i * betas[j]) / (I_j * betas[i]);
+            }
+        }
+        if (psi < minPsi) {
+            minPsi = psi;
+            bestEa = Ea;
+        }
+    }
+    return bestEa;
+}
+
+function tempIntegral(E, T) {
+    const R = 8.314;
+    if (E <= 0 || T <= 0) return 0;
+    const x = E / (R * T);
+    if (x > 700) return 0;
+    return (R * T * T * Math.exp(-x)) / (E + 2 * R * T);
+}
+
+// --- Lifetime Prediction ---
+function predictLifetime(alpha_crit, T_alpha_data, Ea_vs_alpha, betas) {
+    const R = 8.314;
+    const targetTime = 24 * 3600;
+    const crit_index = Math.round((alpha_crit - 0.05) / 0.05);
+    const Ea = Ea_vs_alpha[crit_index] * 1000;
+    const T_alpha = T_alpha_data[alpha_crit][0];
+    const beta_ref = betas[0];
+    const log_g_A = Math.log(tempIntegral(Ea, T_alpha) / beta_ref);
+    const T_iso_K = Ea / (R * (Math.log(targetTime) - log_g_A));
+    return T_iso_K - 273.15;
+}
+
+// --- UI and Charting Functions ---
+function displayDscChart(processedData) {
+    const ctx = document.getElementById('dscChart').getContext('2d');
+    const datasets = processedData.map((run, i) => ({
+        label: `DSC ${i + 1} (${run.beta * 60} \u00B0C/min)`,
+        data: run.data.map(d => ({ x: d.tempC, y: d.heatFlow })),
+        borderColor: ['#FF6384', '#36A2EB', '#FFCE56'][i], borderWidth: 2.5, fill: false, pointRadius: 0
+    }));
+    if (dscChart) dscChart.destroy();
+    dscChart = new Chart(ctx, {
+        type: 'line', data: { datasets },
+        options: { scales: { x: { type: 'linear', title: { display: true, text: 'Temperature (\u00B0C)' } }, y: { title: { display: true, text: 'Heat Flow (W/g)' } } } }
+    });
+}
+
+function displayDscTable(processedData) {
+    const tableBody = document.getElementById('dscTable').getElementsByTagName('tbody')[0];
+    tableBody.innerHTML = '';
+    processedData.forEach((run, i) => {
+        const row = tableBody.insertRow();
+        row.innerHTML = `<td>Experiment ${i + 1}</td><td>${run.beta * 60}</td><td>${run.peakTemp.toFixed(2)}</td><td>${run.totalEnthalpy.toFixed(2)}</td>`;
+    });
+}
+
+function displayVyazovkinChart(alphaValues, Ea_vs_alpha) {
+    const ctx = document.getElementById('vyazovkinChart').getContext('2d');
+    const data = alphaValues.map((alpha, i) => ({ x: alpha, y: Ea_vs_alpha[i] }));
+    if (vyazovkinChart) vyazovkinChart.destroy();
+    vyazovkinChart = new Chart(ctx, {
+        type: 'line',
+        data: { datasets: [{ label: 'Activation Energy', data: data, borderColor: '#4BC0C0', borderWidth: 2.5, fill: false }] },
+        options: { scales: { x: { type: 'linear', title: { display: true, text: 'Extent of Conversion (\u03B1)' } }, y: { title: { display: true, text: 'Activation Energy, E\u2090 (kJ/mol)' } } }, plugins: { legend: { display: false } } }
+    });
+}
+
+function generateSummary(processedData, Ea_vs_alpha, td24) {
+    const summaryDiv = document.getElementById('summary');
+    const avgEa = Ea_vs_alpha.reduce((a, b) => a + b, 0) / Ea_vs_alpha.length;
+    const isEaConstant = (Math.max(...Ea_vs_alpha) - Math.min(...Ea_vs_alpha)) / avgEa < 0.2;
+    summaryDiv.innerHTML = `<p>The analysis was performed on three DSC runs with heating rates of ${processedData.map(p => p.beta * 60).join(', ')} &deg;C/min. The DSC curves show that peaks shift to higher temperatures as heating rate increases, a typical kinetic effect.</p><p>The Vyazovkin analysis reveals the relationship between activation energy (<i>E</i><sub>&alpha;</sub>) and conversion (&alpha;). The average activation energy is approximately <strong>${avgEa.toFixed(1)} kJ/mol</strong>. ${isEaConstant ? 'The activation energy is relatively constant across the conversion range, suggesting the reaction can be described by a single-step kinetic model.' : 'A significant variation in activation energy with conversion is observed. This suggests a complex, multi-step reaction mechanism, where different kinetic steps become dominant as the reaction progresses.'}</p><p>The thermal stability prediction indicates a <strong><i>T</i><sub>d24</sub> of ${td24.toFixed(2)} &deg;C</strong>. This value is the temperature at which the material is predicted to take 24 hours to reach 5% conversion and is a crucial parameter for defining safe operating and storage conditions.</p>`;
+}
+</script>
+
+</body>
+</html>

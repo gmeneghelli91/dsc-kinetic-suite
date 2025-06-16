@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kinetic Model Identification - Master Plot Method</title>
+    
+    <script>
+        window.MathJax = { tex: { inlineMath: [['$', '$']] } };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 900px; margin: 20px auto; padding: 0 20px; background-color: #f4f7f6; }
+        h1, h2, h3, h4 { color: #2c3e50; border-bottom: 2px solid #af4c9a; padding-bottom: 10px; }
+        .container { background-color: #ffffff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        label { font-weight: bold; display: block; margin-top: 15px; margin-bottom: 5px; }
+        input[type="file"] { width: calc(100% - 24px); border: 1px solid #ccc; padding: 10px; border-radius: 4px; font-size: 1em; }
+        button { background-color: #af4c9a; color: white; border: none; padding: 12px 20px; font-size: 16px; margin: 20px 0 10px 0; cursor: pointer; border-radius: 4px; width: 100%; }
+        button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        .status { margin-top: 20px; padding: 15px; border-radius: 4px; background-color: #e8f4fd; border-left: 5px solid #3498db; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.95em; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; vertical-align: middle; }
+        th { background-color: #34495e; color: white; }
+        tbody tr:nth-child(even) { background-color: #f8f9f9; }
+        .comment { margin-top: 15px; padding: 15px; background-color: #fdf2f8; border-left: 4px solid #af4c9a; }
+        .file-entry { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 8px; border-bottom: 1px solid #eee; }
+        .file-entry span { text-overflow: ellipsis; overflow: hidden; white-space: nowrap; font-family: 'Courier New', Courier, monospace; }
+        .file-entry input { width: 120px; padding: 8px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Kinetic Model Identification via Master Plots</h1>
+        <div id="theory-section">
+            <h2>Method Overview</h2>
+            <p>After determining the activation energy ($E_a$) with a model-free isoconversional method, the Master Plot technique allows for the determination of the most probable reaction model, $f(\alpha)$.</p>
+            <p>The technique is based on comparing the experimental data, transformed into a dimensionless "master curve," with a series of theoretical master curves. The fundamental equation of kinetics can be rearranged into a separable form:</p>
+            $$ \frac{g(\alpha)}{g(0.5)} = \frac{\int_0^T e^{-E_a/RT} dT}{\int_0^{T_{0.5}} e^{-E_a/RT} dT} $$
+            <p>The left side represents the **theoretical master curve** (dependent only on the reaction model form, $g(\alpha)$), while the right side is the **experimental master curve** (dependent on experimental T-vs-$\alpha$ data and the $E_a$). By plotting both sides against $\alpha$, the model whose theoretical curve best matches the experimental one can be identified.</p>
+            <p>This tool first calculates an average $E_a$ using the OFW method, then generates the experimental master curve and compares it against a library of 10 common solid-state reaction models to find the best fit.</p>
+        </div>
+        
+        <h3>Data Input</h3>
+        <label for="dscFiles">Upload DSC data files (select all at once):</label>
+        <input type="file" id="dscFiles" accept=".txt,.csv" multiple>
+        <div id="file-details-container" style="margin-top: 15px;"></div>
+        <button id="analyzeButton" disabled>Run Master Plot Analysis</button>
+        <div class="status" id="status">Select at least 2 files to begin.</div>
+    </div>
+
+    <div class="container" id="results-container" style="display:none;"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    let chartRefs = {};
+    const R = 8.314;
+    const dscFilesInput = document.getElementById('dscFiles');
+    const analyzeButton = document.getElementById('analyzeButton');
+    const statusDiv = document.getElementById('status');
+    const fileDetailsContainer = document.getElementById('file-details-container');
+    
+    // Theoretical models g(alpha)
+    const g_functions = {
+        'F1 (1st order)': (a) => -Math.log(1 - a),
+        'F2 (2nd order)': (a) => 1 / (1 - a) - 1,
+        'A2 (Avrami 2)': (a) => Math.pow(-Math.log(1 - a), 1/2),
+        'A3 (Avrami 3)': (a) => Math.pow(-Math.log(1 - a), 1/3),
+        'A4 (Avrami 4)': (a) => Math.pow(-Math.log(1 - a), 1/4),
+        'R2 (Contracting Cylinder)': (a) => 1 - Math.pow(1 - a, 1/2),
+        'R3 (Contracting Sphere)': (a) => 1 - Math.pow(1 - a, 1/3),
+        'D1 (1D Diffusion)': (a) => a**2,
+        'D2 (2D Diffusion)': (a) => (1 - a) * Math.log(1-a) + a,
+        'D3 (Jander, 3D Diffusion)': (a) => Math.pow(1 - Math.pow(1 - a, 1/3), 2),
+    };
+
+    dscFilesInput.addEventListener('change', (event) => {
+        const uploadedFiles = Array.from(event.target.files);
+        fileDetailsContainer.innerHTML = '';
+        if (uploadedFiles.length < 2) { analyzeButton.disabled = true; statusDiv.innerHTML = `<strong style="color:red;">Select at least 2 files.</strong>`; return; }
+        const header = document.createElement('div'); header.className = 'file-entry'; header.innerHTML = '<strong>File Name</strong><strong>Heating Rate β (K/min)</strong>'; fileDetailsContainer.appendChild(header);
+        uploadedFiles.forEach(file => { const entryDiv = document.createElement('div'); entryDiv.className = 'file-entry'; entryDiv.innerHTML = `<span>${file.name}</span><input type="number" class="beta-input" placeholder="e.g., 5" required>`; fileDetailsContainer.appendChild(entryDiv); });
+        analyzeButton.disabled = false; statusDiv.textContent = `Ready to analyze ${uploadedFiles.length} files. Please enter the heating rates.`;
+    });
+
+    analyzeButton.addEventListener('click', async () => {
+        const resultsContainer = document.getElementById('results-container');
+        resultsContainer.innerHTML = '';
+        resultsContainer.style.display = 'none';
+        
+        const runConfigs = [];
+        let allInputsValid = true;
+        document.querySelectorAll('.file-entry').forEach((entry, i) => {
+            if (i === 0) return;
+            const betaInput = entry.querySelector('.beta-input');
+            const beta = parseFloat(betaInput.value);
+            if (isNaN(beta) || beta <= 0) { allInputsValid = false; }
+            runConfigs.push({ file: dscFilesInput.files[i-1], beta });
+        });
+        if (!allInputsValid) { statusDiv.innerHTML = `<strong style="color:red;">Please enter positive numerical values for all heating rates.</strong>`; return; }
+        
+        statusDiv.textContent = 'Analysis in progress...';
+        
+        try {
+            await new Promise(resolve => setTimeout(resolve, 50));
+            
+            const fileContents = await Promise.all(runConfigs.map(config => config.file.text()));
+            const processedRuns = fileContents.map((content, i) => parseAndProcessDSC(content, runConfigs[i]));
+            
+            statusDiv.textContent = 'Step 1/3: Calculating Ea with OFW method...';
+            const Ea_J_mol = runOFW(processedRuns);
+            if (!isFinite(Ea_J_mol) || Ea_J_mol <= 0) throw new Error("Could not determine a valid activation energy from the data.");
+            
+            statusDiv.textContent = 'Step 2/3: Calculating experimental and theoretical master plots...';
+            const experimentalPlot = calculateExperimentalMasterPlot(processedRuns, Ea_J_mol);
+            const theoreticalPlots = calculateTheoreticalMasterPlots(Object.keys(g_functions));
+
+            statusDiv.textContent = 'Step 3/3: Finding best fit and generating results...';
+            const bestFitResults = findBestFitModel(experimentalPlot, theoreticalPlots);
+
+            displayResults(Ea_J_mol, experimentalPlot, theoreticalPlots, bestFitResults);
+            statusDiv.textContent = 'Analysis completed successfully.';
+        } catch (error) {
+            statusDiv.innerHTML = `<strong style="color:red;">Error:</strong> ${error.message}`;
+            console.error(error);
+        }
+    });
+
+    const parseAndProcessDSC = (content, config) => {
+        const lines = content.split('\n').filter(line => line.trim() !== '' && !line.trim().startsWith('#'));
+        const originalData = lines.map(line => {
+            const cols = line.trim().split(/[\s,;	]+/);
+            if (cols.length < 4) return null;
+            return { time: parseFloat(cols[0]), tempC: parseFloat(cols[2]), heatFlow: parseFloat(cols[3]) };
+        }).filter(p => p !== null && !Object.values(p).some(isNaN));
+        if (originalData.length < 3) throw new Error(`File "${config.file.name}" has insufficient data.`);
+        
+        let totalEnthalpy = 0;
+        for (let i = 0; i < originalData.length - 1; i++) {
+            const dt = originalData[i+1].time - originalData[i].time;
+            if(dt > 0) totalEnthalpy += (originalData[i].heatFlow + originalData[i+1].heatFlow)/2 * dt;
+        }
+        if (totalEnthalpy <= 0) throw new Error(`Enthalpy in file "${config.file.name}" is not positive.`);
+        
+        let partialEnthalpy = 0;
+        const processedPoints = [];
+        for(let i=0; i<originalData.length; i++){
+            const p = originalData[i];
+            if (i > 0) {
+                const dt = p.time - originalData[i-1].time;
+                if(dt > 0) partialEnthalpy += (originalData[i-1].heatFlow + p.heatFlow)/2 * dt;
+            }
+            const alpha = Math.min(1, Math.max(0, partialEnthalpy / totalEnthalpy));
+            processedPoints.push({ ...p, tempK: p.tempC + 273.15, alpha: alpha });
+        }
+        return { fileName: config.file.name, beta: config.beta, points: processedPoints };
+    };
+    
+    const tempIntegral = (E, T) => { // Senum-Yang approximation
+        if (E <= 0 || T <= 0) return 0;
+        const x = E / (R * T);
+        if (x > 600) return 0; // Avoid overflow/underflow
+        const x2 = x*x, x3 = x*x2, x4 = x*x3;
+        const num = Math.exp(-x) * (x3 + 18*x2 + 86*x + 96);
+        const den = x4 + 20*x3 + 120*x2 + 240*x + 120;
+        return (R * T * T / E) * (num / den);
+    };
+
+    const linearRegression = (points) => {
+        const n = points.length;
+        if (n < 2) return { slope: 0, intercept: 0, r2: 0 };
+        let sum_x = 0, sum_y = 0, sum_xy = 0, sum_xx = 0, sum_yy = 0;
+        for (const p of points) { sum_x += p.x; sum_y += p.y; sum_xy += p.x * p.y; sum_xx += p.x * p.x; sum_yy += p.y * p.y; }
+        const slope = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x);
+        const intercept = (sum_y - slope * sum_x) / n;
+        const r2_num = (n * sum_xy - sum_x * sum_y);
+        const r2_den = Math.sqrt((n * sum_xx - sum_x * sum_x) * (n * sum_yy - sum_y * sum_y));
+        const r2 = (r2_den === 0) ? 0 : Math.pow(r2_num / r2_den, 2);
+        return { slope, intercept, r2 };
+    };
+
+    const getTforAlpha = (run, alpha) => {
+        const upperIndex = run.points.findIndex(p => p.alpha >= alpha);
+        if (upperIndex <= 0) return run.points[0].tempK;
+        if (upperIndex >= run.points.length -1) return run.points[run.points.length-1].tempK;
+        const p1 = run.points[upperIndex-1], p2 = run.points[upperIndex];
+        const weight = (alpha - p1.alpha) / (p2.alpha - p1.alpha);
+        return p1.tempK + weight * (p2.tempK - p1.tempK);
+    };
+
+    const runOFW = (runs) => {
+        const alphaLevels = Array.from({length: 19}, (_, i) => 0.05 + i * 0.05);
+        let slopes = [];
+        alphaLevels.forEach(alpha => {
+            const points = runs.map(run => ({
+                x: 1 / getTforAlpha(run, alpha),
+                y: Math.log(run.beta)
+            })).filter(p => isFinite(p.x) && isFinite(p.y));
+
+            if (points.length >= 2) {
+                const fit = linearRegression(points);
+                slopes.push(fit.slope);
+            }
+        });
+        const avgSlope = slopes.reduce((a, b) => a + b, 0) / slopes.length;
+        return -avgSlope * R / 1.052; // Doyle's approximation correction
+    };
+
+    const calculateExperimentalMasterPlot = (runs, Ea) => {
+        const alphaLevels = Array.from({length: 96}, (_, i) => 0.02 + i * 0.01); // Denser grid
+        const masterPlotPoints = [];
+        
+        alphaLevels.forEach(alpha => {
+            let sum = 0, count = 0;
+            for (const run of runs) {
+                const T_alpha = getTforAlpha(run, alpha);
+                const T_half = getTforAlpha(run, 0.5);
+                
+                const I_alpha = tempIntegral(Ea, T_alpha);
+                const I_half = tempIntegral(Ea, T_half);
+
+                if (isFinite(I_alpha) && isFinite(I_half) && I_half > 0) {
+                    sum += I_alpha / I_half;
+                    count++;
+                }
+            }
+            if (count > 0) {
+                masterPlotPoints.push({ x: alpha, y: sum / count });
+            }
+        });
+        return masterPlotPoints;
+    };
+
+    const calculateTheoreticalMasterPlots = (modelNames) => {
+        const alphaLevels = Array.from({length: 96}, (_, i) => 0.02 + i * 0.01);
+        const plots = {};
+        modelNames.forEach(name => {
+            const g_func = g_functions[name];
+            const g_half = g_func(0.5);
+            if (g_half === 0 || !isFinite(g_half)) return;
+            plots[name] = alphaLevels.map(alpha => ({
+                x: alpha,
+                y: g_func(alpha) / g_half
+            })).filter(p => isFinite(p.y) && p.y >= 0);
+        });
+        return plots;
+    };
+
+    const findBestFitModel = (expPlot, theoPlots) => {
+        let bestModel = { name: 'N/A', deviation: Infinity };
+        const results = [];
+
+        for (const name in theoPlots) {
+            const theoPlot = theoPlots[name];
+            let deviation = 0;
+            let count = 0;
+            
+            expPlot.forEach(expPoint => {
+                const theoPoint = theoPlot.find(p => Math.abs(p.x - expPoint.x) < 0.005);
+                if (theoPoint) {
+                    deviation += Math.pow(expPoint.y - theoPoint.y, 2);
+                    count++;
+                }
+            });
+            
+            if (count > 0) {
+                const meanDeviation = deviation / count;
+                results.push({ name, deviation: meanDeviation });
+                if (meanDeviation < bestModel.deviation) {
+                    bestModel = { name, deviation: meanDeviation };
+                }
+            }
+        }
+        results.sort((a,b) => a.deviation - b.deviation);
+        return results;
+    };
+    
+    const displayResults = (Ea_J_mol, expPlot, theoPlots, bestFitResults) => {
+        const resultsContainer = document.getElementById('results-container');
+        resultsContainer.innerHTML = `
+            <h2>Preliminary Analysis</h2>
+            <p>Average activation energy determined by OFW method: <strong>${(Ea_J_mol / 1000).toFixed(1)} kJ/mol</strong>. This value is used to construct the experimental master plot.</p>
+            <h2>Master Plot Analysis</h2>
+            <div class="chart-container"><canvas id="masterPlotChart"></canvas></div>
+            <h2>Model Identification Results</h2>
+            <p>The following table ranks the theoretical models from best to worst fit based on their deviation from the experimental master curve.</p>
+            <table id="resultsTable">
+                <thead><tr><th>Rank</th><th>Model Name</th><th>Deviation (Sum of Squares)</th></tr></thead>
+                <tbody></tbody>
+            </table>
+            <div id="finalComment" class="comment"></div>
+        `;
+        resultsContainer.style.display = 'block';
+
+        const tableBody = document.getElementById('resultsTable').querySelector('tbody');
+        bestFitResults.forEach((res, i) => {
+            const row = tableBody.insertRow();
+            row.innerHTML = `<td>${i+1}</td><td><strong>${res.name}</strong></td><td>${res.deviation.toExponential(3)}</td>`;
+            if (i === 0) row.style.backgroundColor = '#d4edda';
+        });
+
+        document.getElementById('finalComment').innerHTML = generateFinalComment(bestFitResults[0]);
+        
+        drawMasterPlotChart(expPlot, theoPlots, bestFitResults[0].name);
+    };
+
+    const generateFinalComment = (bestModel) => {
+        const modelExplanations = {
+            'F': 'n-th Order Reaction: A simple model where the reaction rate depends on the amount of remaining reactant.',
+            'A': 'Avrami-Erofeev (Nucleation and Growth): Describes processes where new phase nuclei form and grow over time.',
+            'R': 'Reaction at Interface (Contracting Geometry): Models reactions occurring at the surface of particles, like a sphere or cylinder shrinking.',
+            'D': 'Diffusion-Controlled Reactions: Represents processes where the reaction rate is limited by the diffusion of reactants through a product layer.'
+        };
+        const modelCode = bestModel.name.charAt(0);
+        const explanation = modelExplanations[modelCode] || "This is a standard kinetic model.";
+        return `<p>The analysis indicates that the <strong>${bestModel.name}</strong> model provides the best fit to the experimental data. This suggests that the reaction mechanism is likely governed by a process described by this model type.</p><p><strong>Interpretation of ${bestModel.name}:</strong> ${explanation}</p>`;
+    };
+    
+    const drawMasterPlotChart = (expPlot, theoPlots, bestFitName) => {
+        if(chartRefs.master) chartRefs.master.destroy();
+        const ctx = document.getElementById('masterPlotChart').getContext('2d');
+
+        const datasets = [];
+        datasets.push({
+            label: 'Experimental Data',
+            data: expPlot,
+            borderColor: 'black',
+            backgroundColor: 'black',
+            borderWidth: 4,
+            pointRadius: 0,
+            type: 'line'
+        });
+
+        const colors = ['#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4'];
+        let colorIndex = 0;
+        for (const name in theoPlots) {
+            const isBestFit = name === bestFitName;
+            datasets.push({
+                label: name,
+                data: theoPlots[name],
+                borderColor: colors[colorIndex % colors.length],
+                borderWidth: isBestFit ? 3 : 1.5,
+                borderDash: isBestFit ? [] : [5, 5],
+                pointRadius: 0,
+                type: 'line',
+                hidden: !isBestFit // Hide all but the best fit initially
+            });
+            colorIndex++;
+        }
+        
+        chartRefs.master = new Chart(ctx, {
+            type: 'line',
+            data: { datasets },
+            options: {
+                scales: {
+                    x: { type: 'linear', title: { display: true, text: 'Conversion, α' }, min: 0, max: 1 },
+                    y: { type: 'linear', title: { display: true, text: 'Normalized Function g(α)/g(0.5)' }, min: 0 }
+                },
+                plugins: {
+                    legend: { position: 'right' },
+                    tooltip: { enabled: false }
+                }
+            }
+        });
+    };
+});
+</script>
+</body>
+</html>
