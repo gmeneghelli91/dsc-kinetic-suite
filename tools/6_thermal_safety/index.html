@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thermal Safety Analysis: TD24 & Stoessel</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0KOVEMVIARBEGEOOfUG6TUeJ5serWYUSsfG5nm7biBGYALWaYb4lo" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8" crossorigin="anonymous"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 0 20px;
+            background-color: #f4f7f6;
+        }
+        .card {
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        h1, h2, h3 {
+            color: #0056b3;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        h1 {
+            text-align: center;
+            color: #343a40;
+            border: none;
+            margin-bottom: 15px;
+        }
+        p {
+            text-align: justify;
+            margin-bottom: 1rem;
+        }
+        .theory {
+            margin-top: 20px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #ffffff;
+            border-left: 4px solid #0056b3;
+        }
+        .formula-container {
+            display: block;
+            text-align: center;
+            margin: 25px auto;
+            font-size: 1.2em;
+            padding: 10px;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #495057;
+            /* FIX: Ensure all labels occupy the same vertical space */
+            min-height: 40px; 
+        }
+        input[type="number"] {
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 1em;
+        }
+        button {
+            grid-column: 1 / -1;
+            padding: 12px 20px;
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 15px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #results-container, #stoessel-container {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 25px;
+            border-top: 2px solid #e9ecef;
+        }
+        #td24-result {
+            font-size: 1.9em;
+            font-weight: bold;
+            color: #c82333;
+        }
+        .hidden {
+            display: none;
+        }
+        .error {
+            color: #d9534f;
+            font-weight: bold;
+            text-align: center;
+            padding: 10px;
+            border: 1px solid #d9534f;
+            background-color: #f2dede;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        .stoessel-result-box {
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-width: 2px;
+            border-style: solid;
+        }
+        .stoessel-result-box p {
+            text-align: left;
+        }
+        .stoessel-class-1 { border-color: #28a745; background-color: #e9f5ec; }
+        .stoessel-class-2 { border-color: #ffc107; background-color: #fff8e1; }
+        .stoessel-class-3 { border-color: #fd7e14; background-color: #fff3e0; }
+        .stoessel-class-4 { border-color: #dc3545; background-color: #f8d7da; }
+        .stoessel-class-5 { border-color: #6f2cf4; background-color: #e9dffc; }
+
+        .stoessel-class-title {
+            font-size: 1.8em;
+            font-weight: bold;
+            margin: 0;
+            text-align: center;
+        }
+        .class-1-text { color: #155724; }
+        .class-2-text { color: #856404; }
+        .class-3-text { color: #854a0e; }
+        .class-4-text { color: #721c24; }
+        .class-5-text { color: #351571; }
+    </style>
+</head>
+<body>
+
+    <header class="card">
+        <h1>Process Thermal Safety Analysis</h1>
+        <p>This interactive tool combines two key analyses: the determination of a substance's intrinsic stability via the **adiabatic TD24** calculation and the criticality classification of a chemical process using the **Stoessel method**.</p>
+    </header>
+
+    <div class="card">
+        <h2>Section 1: Intrinsic Stability (TD24 Calculation)</h2>
+        <div class="theory">
+            <p>The intrinsic thermal stability of a reactive substance is its tendency to decompose exothermically in the absence of external heat sources. Under adiabatic conditions (no heat exchange with the environment), the heat generated by the decomposition increases the substance's temperature, further accelerating the reaction and leading to a phenomenon known as "thermal runaway".</p>
+            <p>The **TD24** parameter (Temperature of Decomposition in 24 hours) is the initial temperature at which a substance, under adiabatic conditions, takes 24 hours to reach its maximum rate of decomposition. It is calculated using the Semenov model for the "Time to Maximum Rate" ($TMR_{ad}$):</p>
+            <div class="formula-container" data-formula="TMR_{ad} = \frac{C_p \cdot R \cdot T_0^2}{E_a \cdot |\Delta H_r| \cdot A \cdot e^{-\frac{E_a}{R \cdot T_0}}}"></div>
+             <p>Where: $C_p$ is the specific heat, $R$ is the gas constant, $T_0$ is the initial temperature, $E_a$ is the activation energy, $\Delta H_r$ is the reaction enthalpy, and $A$ is the pre-exponential factor.</p>
+        </div>
+        <form id="td24-form">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="activation-energy">Activation Energy (E<sub>a</sub>) [kJ/mol]</label>
+                    <input type="number" id="activation-energy" value="85" required>
+                </div>
+                <div class="form-group">
+                    <label for="pre-exponential">Pre-exponential Factor (A) [min<sup>-1</sup>]</label>
+                    <input type="number" id="pre-exponential" value="1.5e10" required>
+                </div>
+                <div class="form-group">
+                    <label for="specific-heat">Specific Heat (C<sub>p</sub>) [J/g·K]</label>
+                    <input type="number" id="specific-heat" value="2.1" required>
+                </div>
+                <div class="form-group">
+                    <label for="heat-reaction">Heat of Reaction (&Delta;H<sub>r</sub>) [J/g]</label>
+                    <input type="number" id="heat-reaction" value="250" required>
+                </div>
+            </div>
+            <button type="submit" id="td24-button">1. Calculate TD24 and Simulate</button>
+            <div id="td24-error" class="error hidden"></div>
+        </form>
+        
+        <div id="results-container" class="hidden">
+            <h3>Adiabatic TD24 Results</h3>
+            <div id="td24-result-display">
+                <p id="td24-result"></p>
+            </div>
+            <h3>Self-Heating Simulation</h3>
+            <canvas id="simulation-chart"></canvas>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Section 2: Process Criticality (Stoessel Method)</h2>
+        <div class="theory">
+            <p>The F. Stoessel method classifies the severity of a chemical reaction based on the consequences of a cooling system failure. The analysis relies on comparing key temperatures: the process temperature ($T_P$), the boiling point of the medium ($BP$), the decomposition onset temperature ($T_D$), and the "Maximum Temperature of the Synthesis Reaction" ($MTSR$).</p>
+            <p>The $MTSR$ represents the maximum temperature the system would reach if the entire mass of accumulated reactants were to react instantly under adiabatic conditions. It is calculated from the adiabatic temperature rise ($\Delta T_{ad}$):</p>
+             <div class="formula-container" data-formula="\Delta T_{ad} = \frac{|\Delta H_r|}{C_p}"></div>
+            <div class="formula-container" data-formula="MTSR = T_P + \Delta T_{ad}"></div>
+             <p>The criticality class is assigned by comparing the $MTSR$ with $T_D$ and $BP$ to determine if a cooling failure could trigger decomposition and whether the boiling of the solvent can act as a thermal barrier.</p>
+        </div>
+        <form id="stoessel-form">
+            <p><strong>The values for &Delta;H<sub>r</sub> and C<sub>p</sub> are taken from Section 1.</strong> Enter your process-specific parameters here.</p>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="process-temp">Process Temperature (T<sub>P</sub>) [°C]</label>
+                    <input type="number" id="process-temp" value="80" required>
+                </div>
+                <div class="form-group">
+                    <label for="decomposition-temp">Decomposition Onset Temp. (T<sub>D</sub>) [°C]</label>
+                    <input type="number" id="decomposition-temp" value="160" required>
+                </div>
+                <div class="form-group">
+                    <label for="boiling-point">Boiling Point (BP) [°C]</label>
+                    <input type="number" id="boiling-point" value="110" required>
+                </div>
+            </div>
+            <button type="submit" id="stoessel-button">2. Assess Stoessel Criticality</button>
+            <div id="stoessel-error" class="error hidden"></div>
+        </form>
+
+        <div id="stoessel-container" class="hidden">
+            <h3>Stoessel Analysis Results</h3>
+            <div id="stoessel-calculations"></div>
+            <div id="stoessel-result-box"></div>
+        </div>
+    </div>
+    
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Function to render KaTeX formulas
+        const formulaElements = document.querySelectorAll('.formula-container');
+        formulaElements.forEach(el => {
+            try {
+                katex.render(el.getAttribute('data-formula'), el, {
+                    throwOnError: false,
+                    displayMode: true
+                });
+            } catch (e) {
+                el.textContent = 'Error loading formula.';
+                console.error(e);
+            }
+        });
+
+        // --- Globals for Chart ---
+        window.myChart = null;
+
+        // --- TD24 Module Logic ---
+        document.getElementById('td24-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const errorDiv = document.getElementById('td24-error');
+            const resultsContainer = document.getElementById('results-container');
+            errorDiv.classList.add('hidden');
+            
+            const Ea_kJ_mol = parseFloat(document.getElementById('activation-energy').value);
+            const A_min = parseFloat(document.getElementById('pre-exponential').value);
+            const Cp = parseFloat(document.getElementById('specific-heat').value);
+            const dHr = Math.abs(parseFloat(document.getElementById('heat-reaction').value));
+
+            if ([Ea_kJ_mol, A_min, Cp, dHr].some(v => isNaN(v) || v <= 0)) {
+                errorDiv.textContent = 'All values for the TD24 calculation must be positive numbers.';
+                errorDiv.classList.remove('hidden');
+                resultsContainer.classList.add('hidden');
+                return;
+            }
+
+            const R = 8.31446;
+            const TARGET_TMR_SECONDS = 24 * 3600;
+            const Ea_J_mol = Ea_kJ_mol * 1000;
+            const A_sec = A_min / 60;
+
+            function getTMR_ad(T0_K) {
+                if (T0_K <= 0) return Infinity;
+                const exponent = -Ea_J_mol / (R * T0_K);
+                if (exponent < -700) return Infinity;
+                const rate = dHr * A_sec * Math.exp(exponent);
+                if (rate === 0) return Infinity;
+                return (Cp * R * T0_K * T0_K) / (Ea_J_mol * rate);
+            }
+
+            let T_low = 273.15, T_high = 673.15, T_mid_K = T_low;
+            let converged = false;
+            for (let i = 0; i < 100; i++) {
+                T_mid_K = (T_low + T_high) / 2;
+                let tmr_at_mid = getTMR_ad(T_mid_K);
+                
+                if (Math.abs(T_high - T_low) < 0.01) {
+                    converged = true;
+                    break;
+                }
+                if (tmr_at_mid > TARGET_TMR_SECONDS) {
+                    T_low = T_mid_K;
+                } else {
+                    T_high = T_mid_K;
+                }
+            }
+            
+            if (Math.abs(getTMR_ad(T_mid_K) - TARGET_TMR_SECONDS) > TARGET_TMR_SECONDS * 0.01) {
+                 converged = false;
+            } else {
+                converged = true;
+            }
+
+            if (!converged) {
+                 errorDiv.textContent = 'Calculation failed: unable to converge on a TD24 solution. Check the input parameters.';
+                 errorDiv.classList.remove('hidden');
+                 resultsContainer.classList.add('hidden');
+                 return;
+            }
+            
+            let td24_K = T_mid_K;
+            document.getElementById('td24-result').textContent = `${(td24_K - 273.15).toFixed(1)} °C / ${td24_K.toFixed(1)} K`;
+            
+            function dT_dt(T_K) {
+                const exponent = -Ea_J_mol / (R * T_K);
+                if (exponent < -700) return 0;
+                return (dHr / Cp) * A_sec * Math.exp(exponent);
+            }
+
+            const timeData = [], tempData = [];
+            let current_T = td24_K;
+            let currentTime_s = 0;
+            const dt_s = 180;
+            const maxTime_s = 28 * 3600;
+            const T_final_K = td24_K + (dHr / Cp);
+
+            while (currentTime_s <= maxTime_s) {
+                timeData.push(currentTime_s / 3600);
+                tempData.push(current_T - 273.15);
+
+                if (current_T < T_final_K) {
+                    const rateOfTempIncrease = dT_dt(current_T);
+                    current_T += rateOfTempIncrease * dt_s;
+                    
+                    if (current_T > T_final_K) {
+                        current_T = T_final_K;
+                    }
+                }
+                
+                currentTime_s += dt_s;
+            }
+
+            const ctx = document.getElementById('simulation-chart').getContext('2d');
+            if (window.myChart) window.myChart.destroy();
+            window.myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timeData,
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: tempData,
+                        borderColor: '#c82333',
+                        backgroundColor: 'rgba(200, 35, 51, 0.1)',
+                        borderWidth: 2, pointRadius: 0, tension: 0.1
+                    }]
+                },
+                options: { responsive: true, scales: { x: { type: 'linear', title: { display: true, text: 'Time (hours)' } }, y: { title: { display: true, text: 'Temperature (°C)' } } }, plugins: { legend: { display: false } } }
+            });
+            resultsContainer.classList.remove('hidden');
+        });
+
+        // --- Stoessel Module Logic ---
+        document.getElementById('stoessel-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const errorDiv = document.getElementById('stoessel-error');
+            const resultsContainer = document.getElementById('stoessel-container');
+            errorDiv.classList.add('hidden');
+            resultsContainer.classList.add('hidden');
+
+            const Cp = parseFloat(document.getElementById('specific-heat').value);
+            const dHr = Math.abs(parseFloat(document.getElementById('heat-reaction').value));
+            const Tp = parseFloat(document.getElementById('process-temp').value);
+            const Td = parseFloat(document.getElementById('decomposition-temp').value);
+            const Teb = parseFloat(document.getElementById('boiling-point').value);
+
+            if ([Cp, dHr].some(v => isNaN(v) || v <= 0)) {
+                errorDiv.textContent = 'Invalid or missing values for Cp or ΔHr in Section 1. Please run the TD24 calculation first.';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            if ([Tp, Td, Teb].some(isNaN)) {
+                errorDiv.textContent = 'All required process temperatures must be entered.';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            const deltaT_ad = dHr / Cp;
+            const MTSR = Tp + deltaT_ad;
+
+            let stoesselClass = 0;
+            if (Tp >= Td) {
+                stoesselClass = 5;
+            } else if (MTSR < Td) {
+                stoesselClass = 1;
+            } else {
+                if (Td < Teb) {
+                    stoesselClass = 4;
+                } else {
+                    if (MTSR < Teb) {
+                        stoesselClass = 2;
+                    } else {
+                        stoesselClass = 3;
+                    }
+                }
+            }
+            
+            const descriptions = {
+                1: { title: 'CLASS 1: Low Risk', text: "The reaction is intrinsically safe. A cooling failure cannot trigger thermal decomposition, as the maximum achievable temperature (MTSR) is lower than the decomposition temperature.", css: '1'},
+                2: { title: 'CLASS 2: Low-Medium Risk', text: "In case of failure, the temperature will not reach the decomposition temperature, but it can exceed the boiling point. The main risk is related to the pressure increase due to solvent boiling.", css: '2'},
+                3: { title: 'CLASS 3: Medium Risk', text: "A cooling failure would lead the temperature beyond the boiling point, and the decomposition temperature is higher than or equal to it. The main risk is overpressure, potentially aggravated by decomposition.", css: '3'},
+                4: { title: 'CLASS 4: High Risk', text: "Very dangerous scenario. Decomposition begins at a temperature below the boiling point. A cooling failure can trigger the decomposition reaction directly, without the thermal buffering effect of boiling.", css: '4'},
+                5: { title: 'CLASS 5: Extreme Risk', text: "The process temperature is higher than or equal to the decomposition temperature. The process operates in an intrinsically unstable zone. Any deviation can lead to an immediate runaway.", css: '5'}
+            };
+            
+            const calcDiv = document.getElementById('stoessel-calculations');
+            const resultBox = document.getElementById('stoessel-result-box');
+            
+            calcDiv.innerHTML = `
+                <p style="text-align: center;">Adiabatic Temperature Rise (&Delta;T<sub>ad</sub>) = <strong>${deltaT_ad.toFixed(1)} °C</strong></p>
+                <p style="text-align: center;">Maximum Temperature of Synthesis Reaction (MTSR) = T<sub>P</sub> + &Delta;T<sub>ad</sub> = ${Tp.toFixed(1)} + ${deltaT_ad.toFixed(1)} = <strong>${MTSR.toFixed(1)} °C</strong></p>
+            `;
+            
+            resultBox.className = `stoessel-result-box stoessel-class-${descriptions[stoesselClass].css}`;
+            resultBox.innerHTML = `
+                <h3 class="stoessel-class-title class-${descriptions[stoesselClass].css}-text">${descriptions[stoesselClass].title}</h3>
+                <p>${descriptions[stoesselClass].text}</p>
+            `;
+
+            resultsContainer.classList.remove('hidden');
+        });
+    });
+</script>
+
+</body>
+</html>
