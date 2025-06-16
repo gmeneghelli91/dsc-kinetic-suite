@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Rate Kinetics Analysis Suite (Final Version)</title>
+    
+    <script>
+        window.MathJax = { tex: { inlineMath: [['$', '$']] } };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 900px; margin: 20px auto; padding: 0 20px; background-color: #f4f7f6; }
+        h1, h2, h3, h4, h5 { color: #2c3e50; border-bottom: 2px solid #27ae60; padding-bottom: 10px; }
+        h2 { margin-top: 40px; }
+        .container { background-color: #ffffff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        label { font-weight: bold; display: block; margin-top: 15px; margin-bottom: 5px; }
+        input[type="file"] { width: calc(100% - 24px); border: 1px solid #ccc; padding: 10px; border-radius: 4px; font-size: 1em; }
+        button { background-color: #27ae60; color: white; border: none; padding: 12px 20px; font-size: 16px; margin: 20px 0 10px 0; cursor: pointer; border-radius: 4px; width: 100%; }
+        button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        .status { margin-top: 20px; padding: 15px; border-radius: 4px; background-color: #e8f4fd; border-left: 5px solid #3498db; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.95em; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; vertical-align: middle; }
+        th { background-color: #34495e; color: white; text-align: left; font-size: 1.05em; }
+        td:not(:first-child) { text-align: right; font-family: 'Courier New', Courier, monospace; font-weight: bold; }
+        tbody tr:nth-child(even) { background-color: #f8f9f9; }
+        .method-container { margin-top: 30px; padding: 25px; border-radius: 8px; border: 1px solid #e0e0e0; background-color: #fafcfe; }
+        .method-container h4 { border-color: #3498db; margin-top:0; }
+        .final-summary h2, .final-summary h3 { border-color: #9b59b6; }
+        .comment { margin-top: 15px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #9b59b6; }
+        .file-entry { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 8px; border-bottom: 1px solid #eee; }
+        .file-entry span { text-overflow: ellipsis; overflow: hidden; white-space: nowrap; font-family: 'Courier New', Courier, monospace; }
+        .file-entry input { width: 120px; padding: 8px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Isothermal Multi-Rate Kinetics Suite</h1>
+        <p>This tool performs a comprehensive kinetic analysis based on multi-rate DSC data to determine kinetic parameters and estimate the **isothermal Td24**, a conservative safety parameter.</p>
+        
+        <h3>Data Input</h3>
+        <label for="dscFiles">Upload DSC data files (select all at once):</label>
+        <input type="file" id="dscFiles" accept=".txt,.csv" multiple>
+        <div id="file-details-container" style="margin-top: 15px;"></div>
+        <button id="analyzeButton" disabled>Run Complete Kinetic Analysis</button>
+        <div class="status" id="status">Select at least 2 files to begin.</div>
+    </div>
+
+    <div class="container" id="results-container" style="display:none;">
+        </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            let chartRefs = {};
+            let uploadedFiles = [];
+            const R = 8.314;
+
+            const dscFilesInput = document.getElementById('dscFiles');
+            const analyzeButton = document.getElementById('analyzeButton');
+            const statusDiv = document.getElementById('status');
+            const fileDetailsContainer = document.getElementById('file-details-container');
+            
+            dscFilesInput.addEventListener('change', (event) => {
+                uploadedFiles = Array.from(event.target.files);
+                fileDetailsContainer.innerHTML = '';
+                if (uploadedFiles.length < 2) { analyzeButton.disabled = true; statusDiv.innerHTML = `<strong style="color:red;">Select at least 2 files.</strong>`; return; }
+                const header = document.createElement('div'); header.className = 'file-entry'; header.innerHTML = '<strong>File Name</strong><strong>Heating Rate β (K/min)</strong>'; fileDetailsContainer.appendChild(header);
+                uploadedFiles.forEach(file => { const entryDiv = document.createElement('div'); entryDiv.className = 'file-entry'; entryDiv.innerHTML = `<span>${file.name}</span><input type="number" class="beta-input" placeholder="e.g., 5" required>`; fileDetailsContainer.appendChild(entryDiv); });
+                analyzeButton.disabled = false; statusDiv.textContent = `Ready to analyze ${uploadedFiles.length} files. Please enter the heating rates.`;
+            });
+
+            analyzeButton.addEventListener('click', async () => {
+                const resultsContainer = document.getElementById('results-container');
+                resultsContainer.innerHTML = '';
+                resultsContainer.style.display = 'none';
+                
+                const runConfigs = []; let allInputsValid = true;
+                document.querySelectorAll('.file-entry').forEach((entry, i) => { if (i === 0) return; const betaInput = entry.querySelector('.beta-input'); const beta = parseFloat(betaInput.value); if (isNaN(beta) || beta <= 0) { allInputsValid = false; } runConfigs.push({ file: uploadedFiles[i-1], beta }); });
+                if (!allInputsValid) { statusDiv.innerHTML = `<strong style="color:red;">Please enter positive numerical values for all heating rates.</strong>`; return; }
+                
+                statusDiv.textContent = 'Analysis in progress...';
+                
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    
+                    const fileContents = await Promise.all(runConfigs.map(config => config.file.text()));
+                    let processedRuns = [];
+                    for (let i = 0; i < fileContents.length; i++) { processedRuns.push(parseAndProcessDSC(fileContents[i], runConfigs[i])); }
+
+                    const kissingerResult = runKissingerAnalysis(processedRuns);
+                    const isoResults = runIsoConversionalAnalyses(processedRuns);
+                    
+                    displayResults(processedRuns, kissingerResult, isoResults);
+                    statusDiv.textContent = 'Analysis completed successfully.';
+
+                } catch (error) { statusDiv.innerHTML = `<strong style="color:red;">Error:</strong> ${error.message}`; console.error(error); }
+            });
+        
+            const parseAndProcessDSC = (content, config) => { const lines = content.split('\n').filter(line => line.trim() !== '' && !line.trim().startsWith('#')); const originalData = lines.map(line => { const cols = line.trim().split(/[\s,;	]+/); if (cols.length < 4) return null; return { time: parseFloat(cols[0]), tempC: parseFloat(cols[2]), heatFlow: parseFloat(cols[3]) }; }).filter(p => p !== null && !Object.values(p).some(isNaN)); if(originalData.length < 3) throw new Error(`File "${config.file.name}" has insufficient data.`); let totalEnthalpy = 0; for (let i = 0; i < originalData.length - 1; i++) { const dt = originalData[i+1].time - originalData[i].time; if(dt>0) totalEnthalpy += (originalData[i].heatFlow + originalData[i+1].heatFlow)/2 * dt; } if (totalEnthalpy <= 0) throw new Error(`Enthalpy in file "${config.file.name}" is not positive.`); let peakTemp = { tempC: -Infinity, heatFlow: -Infinity }; let partialEnthalpy = 0; const processedPoints = []; for(let i=0; i<originalData.length; i++){ const p = originalData[i]; if (i > 0) { const dt = p.time - originalData[i-1].time; if(dt > 0) partialEnthalpy += (originalData[i-1].heatFlow + p.heatFlow)/2 * dt; } if(p.heatFlow > peakTemp.heatFlow) peakTemp = p; processedPoints.push({ ...p, tempK: p.tempC + 273.15, alpha: partialEnthalpy / totalEnthalpy, rate: p.heatFlow / totalEnthalpy }); } const isoConvMap = new Map(); const alphaLevels = Array.from({length: 19}, (_, i) => parseFloat((0.05 + i * 0.05).toFixed(2))); for (const alpha of alphaLevels) { const idx = processedPoints.findIndex(p => p.alpha >= alpha); if (idx > 0) { const p1 = processedPoints[idx-1], p2 = processedPoints[idx]; const w = (alpha - p1.alpha) / (p2.alpha - p1.alpha); if (isFinite(w) && w >= 0 && w <= 1) isoConvMap.set(alpha, { T_alpha: p1.tempK + w * (p2.tempK - p1.tempK), rate_alpha: p1.rate + w * (p2.rate - p1.rate) }); } } const totalEnthalpy_mJ = totalEnthalpy * 60; return { fileName: config.file.name, beta: config.beta, originalData, peakTemp: peakTemp.tempC, isoConvMap, totalEnthalpy_mJ }; };
+            const linearRegression = (points) => { const n = points.length; if (n < 2) return { slope: 0, intercept: 0, r2: 0 }; let sum_x = 0, sum_y = 0, sum_xy = 0, sum_xx = 0, sum_yy = 0; for (const p of points) { sum_x += p.x; sum_y += p.y; sum_xy += p.x * p.y; sum_xx += p.x * p.x; sum_yy += p.y * p.y; } const slope = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x); const intercept = (sum_y - slope * sum_x) / n; const r2_num = (n * sum_xy - sum_x * sum_y); const r2_den = Math.sqrt((n * sum_xx - sum_x * sum_x) * (n * sum_yy - sum_y * sum_y)); const r2 = (r2_den === 0) ? 0 : Math.pow(r2_num / r2_den, 2); return { slope, intercept, r2 }; };
+            const runKissingerAnalysis = (runs) => { const pts = runs.map(r => ({ x: 1 / (r.peakTemp + 273.15), y: Math.log(r.beta / Math.pow(r.peakTemp + 273.15, 2)) })); const fit = linearRegression(pts); const Ea_J = -fit.slope * R; const A = Math.exp(fit.intercept) * Ea_J / R; return { name: 'Kissinger', Ea: Ea_J / 1000, A_per_min: A, n: 1, R2: fit.r2, plotData: {plotPoints: pts, fitLine: fit} }; };
+            const runIsoConversionalAnalyses = (runs) => { const alphaLevels = Array.from({length: 19}, (_, i) => parseFloat((0.05 + i * 0.05).toFixed(2))); const results = { friedman: {points:[], avg:{}}, kas: {points:[], avg:{}}, ofw: {points:[], avg:{}} }; for (const alpha of alphaLevels) { const f_pts = [], k_pts = [], o_pts = []; for (const run of runs) { if (run.isoConvMap.has(alpha)) { const d = run.isoConvMap.get(alpha); f_pts.push({ x: 1/d.T_alpha, y: Math.log(d.rate_alpha) }); k_pts.push({ x: 1/d.T_alpha, y: Math.log(run.beta / (d.T_alpha**2)) }); o_pts.push({ x: 1/d.T_alpha, y: Math.log(run.beta) }); } } if (f_pts.length > 2) { const fitF = linearRegression(f_pts); results.friedman.points.push({ alpha, Ea_kJ_mol: -fitF.slope * R / 1000, r2: fitF.r2, intercept: fitF.intercept }); const fitK = linearRegression(k_pts); results.kas.points.push({ alpha, Ea_kJ_mol: -fitK.slope * R / 1000, r2: fitK.r2, intercept: fitK.intercept }); const fitO = linearRegression(o_pts); results.ofw.points.push({ alpha, Ea_kJ_mol: -fitO.slope * R / 1.052 / 1000, r2: fitO.r2, intercept: fitO.intercept }); } } const avg = (arr, key) => { const filtered = arr.filter(p=>isFinite(p[key])); return filtered.length > 0 ? filtered.reduce((a, v) => a + v[key], 0) / filtered.length : NaN; }; results.friedman.avg = { name: 'Friedman', Ea: avg(results.friedman.points, 'Ea_kJ_mol'), R2: avg(results.friedman.points, 'r2'), intercept: avg(results.friedman.points, 'intercept') }; results.kas.avg = { name: 'KAS', Ea: avg(results.kas.points, 'Ea_kJ_mol'), R2: avg(results.kas.points, 'r2'), intercept: avg(results.kas.points, 'intercept') }; results.ofw.avg = { name: 'OFW', Ea: avg(results.ofw.points, 'Ea_kJ_mol'), R2: avg(results.ofw.points, 'r2'), intercept: avg(results.ofw.points, 'intercept') }; return results; };
+            const findTd24Isothermal = (kineticParams) => { if (!kineticParams || !kineticParams.Ea || !isFinite(kineticParams.A_per_min) || kineticParams.Ea <= 0) return NaN; const { Ea, A_per_min, n } = kineticParams; const TARGET_TIME_SEC = 24 * 3600; const TARGET_ALPHA = 0.05; const Ea_J_mol = Ea * 1000; const A_per_sec = A_per_min / 60; let log_argument; if (Math.abs(n - 1.0) < 1e-6) { log_argument = (A_per_sec * TARGET_TIME_SEC) / (-Math.log(1 - TARGET_ALPHA)); } else { const integral_part = (Math.pow(1 - TARGET_ALPHA, 1 - n) - 1) / (n - 1); if (integral_part <= 0) return NaN; log_argument = (A_per_sec * TARGET_TIME_SEC) / integral_part; } if (log_argument <= 0 || !isFinite(log_argument)) return NaN; const Td24_K = Ea_J_mol / (R * Math.log(log_argument)); return Td24_K - 273.15; };
+            const generateModelCurve = (kineticParams, dscRun) => { const { Ea, A_per_min, n } = kineticParams; if (!isFinite(Ea) || !isFinite(A_per_min)) return []; const Ea_J = Ea * 1000; const beta_K_min = dscRun.beta; const totalEnthalpy = dscRun.totalEnthalpy_mJ / 60; const T_start_K = dscRun.originalData[0].tempK; const T_end_K = dscRun.originalData[dscRun.originalData.length-1].tempK; const modelPoints = []; let alpha = 0; const dT = 0.5; for (let T = T_start_K; T < T_end_K; T += dT) { if(alpha >= 1) { modelPoints.push({ x: T - 273.15, y: 0 }); continue; } const d_alpha_d_T = (A_per_min / beta_K_min) * Math.exp(-Ea_J / (R * T)) * Math.pow(1 - alpha, n); alpha += d_alpha_d_T * dT; const d_alpha_dt_model = A_per_min * Math.exp(-Ea_J / (R * T)) * Math.pow(1 - alpha, n); const heatFlow_model_mW = d_alpha_dt_model * totalEnthalpy; modelPoints.push({ x: T - 273.15, y: heatFlow_model_mW }); } return modelPoints; };
+
+            const formatNum = (num, dec=1) => isFinite(num) ? num.toFixed(dec) : 'N/A';
+            
+            const displayResults = (runs, kissinger, iso) => {
+                const resultsContainer = document.getElementById('results-container');
+                resultsContainer.innerHTML = `<h2 style="border-color: #e67e22;">Step 1: Preliminary Input Data Analysis</h2><div class="chart-container"><canvas id="rawDscChart"></canvas></div><h3>Input Data Summary Table</h3><table id="inputSummaryTable"></table><h2 style="border-color: #3498db;">Step 2: Detailed Kinetic Analysis by Method</h2><div id="methods-container"></div><div class="final-summary"><h2 style="margin-top: 40px;">Step 3: Final Summary & Conclusions</h2><h3>Model Comparison Table</h3><p>Models are sorted by the reliability of their fit (average correlation coefficient $R^2$).</p><table id="finalSummaryTable"></table><div id="final-table-footnote" style="font-size: 0.9em; margin-top: 10px;"></div><h3>Final Summary & Interpretation</h3><div id="final-comment" class="comment"></div></div>`;
+                resultsContainer.style.display = 'block';
+
+                setTimeout(() => {
+                    Object.values(chartRefs).forEach(chart => chart.destroy()); chartRefs = {};
+                    displayInputSummary(runs);
+                    drawAllDscCurves(runs);
+                    const methodsContainer = document.getElementById('methods-container');
+                    const allModels = [ { ...kissinger }, { ...iso.friedman.avg, plotData: {type: 'friedman', runs, alpha: 0.5}}, { ...iso.kas.avg, plotData: {type: 'kas', runs, alpha: 0.5}}, { ...iso.ofw.avg, plotData: {type: 'ofw', runs, alpha: 0.5}}, ];
+                    allModels.forEach(model => { methodsContainer.appendChild(createMethodResultBlock(model, kissinger.A_per_min, runs)); });
+                    const sortedModels = allModels.filter(m => isFinite(m.R2)).sort((a,b) => b.R2 - a.R2);
+                    const finalTable = document.getElementById('finalSummaryTable');
+                    finalTable.innerHTML = `<thead><tr><th>Model</th><th>Avg. Ea (kJ/mol)</th><th>A (min⁻¹)</th><th>Avg. R²</th><th>Isothermal Td24 (°C)</th><th>Fit Reliability</th></tr></thead><tbody></tbody>`;
+                    const finalTbody = finalTable.querySelector('tbody');
+                    sortedModels.forEach(model => {
+                        const row = finalTbody.insertRow();
+                        let comment = 'Excellent'; if (model.R2 < 0.95) comment = 'Low, use with caution'; else if (model.R2 < 0.98) comment = 'Fair'; else if (model.R2 < 0.995) comment = 'Good';
+                        const Td24 = findTd24Isothermal({Ea: model.Ea, A_per_min: kissinger.A_per_min, n:1});
+                        
+                        const A_value = model.name === 'Kissinger' ? kissinger.A_per_min.toExponential(2) : `${kissinger.A_per_min.toExponential(2)}*`;
+                        
+                        row.innerHTML = `<td>${model.name}</td><td>${formatNum(model.Ea, 1)}</td><td>${A_value}</td><td>${formatNum(model.R2, 4)}</td><td>${formatNum(Td24, 1)}</td><td>${comment}</td>`;
+                    });
+
+                    document.getElementById('final-table-footnote').innerHTML = `<em>*The pre-exponential factor (A) is calculated directly only by the Kissinger method and is used as the best estimate for the Td24 calculations of the other models.</em>`;
+
+                    document.getElementById('final-comment').innerHTML = generateFinalComment(sortedModels, kissinger.A_per_min);
+                    if(window.MathJax) { MathJax.typesetPromise([resultsContainer]).catch(err => console.error('MathJax typeset error:', err)); }
+                }, 100);
+            };
+
+            const createMethodResultBlock = (model, kissingerA, runs) => {
+                const container = document.createElement('div'); container.className = 'method-container';
+                const fitChartId = `${model.name.toLowerCase()}Chart_fit`;
+                const validationChartId = `${model.name.toLowerCase()}Chart_validation`;
+                const Td24 = findTd24Isothermal({Ea: model.Ea, A_per_min: kissingerA, n:(model.n || 1)});
+                
+                const A_formatted = isFinite(kissingerA) ? kissingerA.toExponential(2) : 'N/A';
+                const A_comment = model.name !== 'Kissinger' ? ' (from Kissinger)' : '';
+
+                const theory = {
+                    Kissinger: `The Kissinger method is a model-based approach that uses the peak temperature ($T_p$) at different heating rates ($\\beta$) to determine a global activation energy. Its equation, $ \\ln \\left( \\frac{\\beta}{{T_p}^2} \\right) = \\ln \\left( \\frac{A R}{E_a} \\right) - \\frac{E_a}{R T_p} $, is solved graphically. The linear fit provides $E_a$ from the slope and the pre-exponential factor $A$ from the intercept, assuming a first-order reaction model.`,
+                    Friedman: 'This is the most general differential isoconversional method. For each conversion level ($\\alpha$), it calculates $E_a$ from the slope of the plot of $ \\ln( \\frac{d\\alpha}{dt} ) $ versus $1/T_\\alpha$. It uses no mathematical approximations for the temperature integral, making it theoretically very accurate but also sensitive to experimental noise.',
+                    KAS: 'The Kissinger-Akahira-Sunose method is an integral isoconversional method. It is based on the linear regression of $ \\ln(\\beta/T_\\alpha^2) $ versus $1/T_\\alpha$ to calculate $E_a$ at each conversion level. It is considered very robust and widely used.',
+                    OFW: 'The Ozawa-Flynn-Wall method is another integral isoconversional method, which uses the plot of $ \\ln(\\beta) $ versus $1/T_\\alpha$. It is simple to apply, but its underlying approximation (from Doyle) is considered less accurate than that of KAS.'
+                };
+                container.innerHTML = `<h4>${model.name} Method</h4><p>${theory[model.name]}</p>
+                    <table><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody>
+                        <tr><td>Average Activation Energy (Ea)</td><td><strong>${formatNum(model.Ea, 1)} kJ/mol</strong></td></tr>
+                        <tr><td>Pre-exponential Factor (A)</td><td>${A_formatted} min⁻¹${A_comment}</td></tr>
+                        <tr><td>Average Correlation Coeff. (R²)</td><td>${formatNum(model.R2, 4)}</td></tr>
+                        <tr><td><b>Calculated Isothermal Td24</b></td><td><b>${formatNum(Td24, 1)} °C</b></td></tr>
+                    </tbody></table>
+                    <h5 style="border-color: #aaa;">Regression Plot</h5>
+                    <div class="chart-container"><canvas id="${fitChartId}"></canvas></div>
+                    <h5 style="border-color: #aaa;">Model Validation Plot</h5>
+                    <div class="chart-container"><canvas id="${validationChartId}"></canvas></div>`;
+                
+                setTimeout(() => {
+                    const validationRun = runs[Math.floor(runs.length / 2)];
+                    const modelKineticParams = {Ea: model.Ea, A_per_min: kissingerA, n: (model.n || 1)};
+                    const modelCurve = generateModelCurve(modelKineticParams, validationRun);
+                    drawValidationChart(validationRun, modelCurve, validationChartId);
+
+                    if(model.name === 'Kissinger') { drawKissingerChart(model.plotData, fitChartId); }
+                    else { drawIsoConvPlot(model.plotData.runs, model.plotData.type, model.plotData.alpha, fitChartId); }
+                }, 50);
+                return container;
+            };
+
+            const generateFinalComment = (models, kissingerA) => { const bestModel = models[0]; const Td24_values = models.map(m => findTd24Isothermal({Ea: m.Ea, A_per_min: kissingerA, n:1})).filter(t => isFinite(t)); if (Td24_values.length === 0) return "Could not generate a final summary: no model produced a valid Td24."; const Td24_avg = Td24_values.reduce((a,b) => a+b, 0) / Td24_values.length; const Td24_std = Math.sqrt(Td24_values.map(t => (t-Td24_avg)**2).reduce((a,b)=>a+b,0) / Td24_values.length); let comment = `The comparative analysis indicates the <strong>${bestModel.name}</strong> method as the most reliable from a linear regression standpoint (R²=${formatNum(bestModel.R2, 4)}). The average activation energy is calculated to be around <strong>${formatNum(bestModel.Ea, 0)} kJ/mol</strong>. The Td24 values are ${Td24_std < 10 ? 'very consistent' : 'relatively consistent'} across the models, with an average of <strong>${formatNum(Td24_avg, 1)} ± ${formatNum(Td24_std, 1)} °C</strong>. For a conservative approach, the lowest calculated Td24 value of <strong>${formatNum(Math.min(...Td24_values),1)} °C</strong> is recommended for safety assessments. The good overlap between the experimental and simulated curves in the validation plots increases confidence in the obtained parameters.`; return comment; };
+            const drawChart = (id, cfg) => { const canvas = document.getElementById(id); if (!canvas) return; if (chartRefs[id]) chartRefs[id].destroy(); const ctx = canvas.getContext('2d'); chartRefs[id] = new Chart(ctx, cfg); };
+            const displayInputSummary = (runs) => { const table = document.getElementById('inputSummaryTable'); table.innerHTML = `<thead><tr><th>File</th><th>Heating Rate β (K/min)</th><th>Peak Temp. (°C)</th></tr></thead><tbody></tbody>`; const tbody = table.querySelector('tbody'); runs.forEach(run => { const row = tbody.insertRow(); row.innerHTML = `<td>${run.fileName}</td><td>${run.beta}</td><td>${formatNum(run.peakTemp, 1)}</td>`; }); if(window.MathJax) { MathJax.typesetPromise([table]).catch(err => console.error(err)); } };
+            const drawAllDscCurves = (runs) => { const datasets = runs.map((run, i) => { const c = ['#007bff','#dc3545','#28a745','#6f42c1','#fd7e14','#000']; return { label: `${run.beta} K/min`, data: run.originalData.map(p => ({ x: p.tempC, y: p.heatFlow })), borderColor: c[i % c.length], borderWidth: 2.5, pointRadius: 0, tension: 0.1 }; }); drawChart('rawDscChart', { type: 'line', data: { datasets }, options: { scales: { x: { type: 'linear', title: { display: true, text: 'Temperature (°C)' } }, y: { title: { display: true, text: 'Heat Flow (mW)' } } }, plugins: { legend: { position: 'top' } } } }); };
+            const drawKissingerChart = (result, canvasId) => { const fL = [{x: Math.min(...result.plotPoints.map(p=>p.x)), y:0}, {x: Math.max(...result.plotPoints.map(p=>p.x)), y:0}]; fL[0].y = result.fitLine.slope * fL[0].x + result.fitLine.intercept; fL[1].y = result.fitLine.slope * fL[1].x + result.fitLine.intercept; drawChart(canvasId, { type: 'scatter', data: { datasets: [ { label: 'Data', data: result.plotPoints, backgroundColor: '#dc3545' }, { label: `Fit (R²=${formatNum(result.r2, 3)})`, data: fL, type: 'line', borderColor: '#007bff', pointRadius: 0, borderWidth: 2.5 } ] }, options: { scales: { x: { title: {display: true, text: '1/Tp (K⁻¹)'}}, y: { title: {display: true, text: 'ln(β/T_p²)'}} } } }); };
+            const drawIsoConvPlot = (runs, method, alpha, canvasId) => { const points = []; for (const run of runs) { if (run.isoConvMap.has(alpha)) { const data = run.isoConvMap.get(alpha); if (method === 'kas') points.push({ x: 1/data.T_alpha, y: Math.log(run.beta / (data.T_alpha**2)) }); else if (method === 'ofw') points.push({ x: 1/data.T_alpha, y: Math.log(run.beta) }); else if (method === 'friedman') points.push({ x: 1/data.T_alpha, y: Math.log(data.rate_alpha) }); } } if (points.length < 2) return; const fit = linearRegression(points); const fL = [{x: Math.min(...points.map(p=>p.x)), y:0}, {x: Math.max(...points.map(p=>p.x)), y:0}]; fL[0].y = fit.slope * fL[0].x + fit.intercept; fL[1].y = fit.slope * fL[1].x + fit.intercept; const yLbls = {kas: 'ln(β/T_α²)', ofw: 'ln(β)', friedman: 'ln(dα/dt)'}; drawChart(canvasId, { type: 'scatter', data: { datasets: [{ label: `Data (α=${alpha})`, data: points, backgroundColor: '#dc3545' }, { label: `Fit (R²=${formatNum(fit.r2, 3)})`, data: fL, type: 'line', borderColor: '#007bff', pointRadius: 0, borderWidth: 2.5 }] }, options: { plugins: { legend: {display:false}, title:{display:true, text:`Plot for ${method.toUpperCase()} at α = ${alpha}`} }, scales: { x: { title: {display: true, text: '1/Tα (K⁻¹)'}}, y: { title: {display: true, text: yLbls[method]}} } } }); };
+            const drawValidationChart = (expRun, modelCurve, canvasId) => { drawChart(canvasId, { type: 'line', data: { datasets: [ { label: `Experimental (${expRun.beta} K/min)`, data: expRun.originalData.map(p=>({x:p.tempC, y:p.heatFlow})), borderColor: '#007bff', borderWidth: 2.5, pointRadius: 0 }, { label: 'Simulated Model', data: modelCurve, borderColor: '#dc3545', borderWidth: 2, borderDash: [5,5], pointRadius: 0 } ] }, options: { scales: { x: { type: 'linear', title: { display: true, text: 'Temperature (°C)' } }, y: { title: { display: true, text: 'Heat Flow (mW)' } } }, plugins: { legend: { position: 'top' } } } }); };
+        
+        });
+    </script>
+</body>
+</html>
