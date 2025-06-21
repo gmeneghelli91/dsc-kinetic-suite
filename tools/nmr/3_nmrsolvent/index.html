@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NMR Residual Solvent Analysis Tool</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.6; padding: 20px; background-color: #f4f4f9; color: #333; }
+        button, input, select, fieldset { font-family: inherit; font-size: 1em; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .module { margin-bottom: 40px; border-top: 1px solid #eee; padding-top: 20px;}
+        h1, h2 { color: #0056b3; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; font-weight: 600; }
+        h1 { font-size: 1.8em; border-bottom: none; }
+        h2 { font-size: 1.4em; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: #444; }
+        select, input[type="number"] { width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; background-color: #fff; }
+        select[multiple] { height: 200px; }
+        button { background-color: #007bff; color: white; padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; transition: background-color 0.2s ease; }
+        button:hover { background-color: #0056b3; }
+        fieldset { border: 1px solid #ddd; border-radius: 5px; padding: 20px; margin-bottom: 20px; }
+        legend { font-weight: 600; color: #0056b3; padding: 0 10px; }
+        .spectrum-container { position: relative; width: 100%; height: 200px; background-color: #fdfdfd; border: 1px solid #ccc; border-radius: 4px; margin-top: 20px; overflow: hidden; }
+        .peak-label { position: absolute; bottom: 145px; font-size: 10px; transform: translateX(-50%); white-space: nowrap; background: rgba(255,255,255,0.85); padding: 2px 4px; border-radius: 3px; }
+        .spectrum-axis { position: absolute; bottom: 0; left: 0; width: 100%; height: 20px; display: flex; justify-content: space-between; padding: 0 10px; box-sizing: border-box; }
+        .spectrum-peak { position: absolute; bottom: 20px; }
+        .impurity-peak { background-color: red; }
+        .solvent-peak { background-color: blue; }
+        #quant-results table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        #quant-results th, #quant-results td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        #quant-results th { background-color: #f2f2f2; }
+        .quant-input-row { display: grid; grid-template-columns: 1fr 2fr 100px; gap: 10px; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>NMR Residual Solvent Analysis Tool</h1>
+    <p>This tool uses data from H. E. Gottlieb et al. (1997), G. R. Fulmer et al. (2010), and A. D'Archivio et al. (2016).</p>
+
+    <div class="module">
+        <h2>Module 1: ¹H NMR Spectrum Viewer</h2>
+        <label for="deuterated-solvent">1. Choose the Deuterated Solvent:</label>
+        <select id="deuterated-solvent">
+            <option value="CDCl3">Chloroform-d</option>
+            <option value="(CD3)2CO">Acetone-d6</option>
+            <option value="(CD3)2SO">DMSO-d6</option>
+            <option value="C6D6">Benzene-d6</option>
+            <option value="CD3CN">Acetonitrile-d3</option>
+            <option value="CD3OD">Methanol-d4</option>
+            <option value="D2O">Water-d2</option>
+            <option value="CD2Cl2">Dichloromethane-d2</option>
+        </select>
+        <label for="residual-solvents">2. Choose Residual Solvents (Ctrl/Cmd + Click):</label>
+        <select id="residual-solvents" multiple>
+            <option value="acetone">acetone</option>
+            <option value="acetonitrile">acetonitrile</option>
+            <option value="anisole">anisole</option>
+            <option value="benzene">benzene</option>
+            <option value="chloroform">chloroform</option>
+            <option value="cpme">cyclopentyl methyl ether (CPME)</option>
+            <option value="cyclohexane">cyclohexane</option>
+            <option value="dichloromethane">dichloromethane</option>
+            <option value="diethyl ether">diethyl ether</option>
+            <option value="diisopropylamine">diisopropylamine</option>
+            <option value="dimethylformamide">dimethylformamide (DMF)</option>
+            <option value="dimethyl sulfoxide">dimethyl sulfoxide (DMSO)</option>
+            <option value="dioxane">dioxane</option>
+            <option value="ethanol">ethanol</option>
+            <option value="ethyl acetate">ethyl acetate</option>
+            <option value="furan">furan</option>
+            <option value="H2O">H2O</option>
+            <option value="hexamethyldisiloxane">hexamethyldisiloxane (HMDSO)</option>
+            <option value="isopropyl acetate">isopropyl acetate (IPAc)</option>
+            <option value="methanol">methanol</option>
+            <option value="2-methyltetrahydrofuran">2-methyltetrahydrofuran (2-MeTHF)</option>
+            <option value="n-heptane">n-heptane</option>
+            <option value="n-hexane">n-hexane</option>
+            <option value="n-methyl-2-pyrrolidone">n-methyl-2-pyrrolidone (NMP)</option>
+            <option value="n-pentane">n-pentane</option>
+            <option value="pyridine">pyridine</option>
+            <option value="tetrahydrofuran">tetrahydrofuran (THF)</option>
+            <option value="toluene">toluene</option>
+        </select>
+        <button id="visualize-btn">Visualize Spectrum</button>
+        <div class="spectrum-container">
+            <div id="spectrum-display"></div>
+            <div class="spectrum-axis">
+                <span>10 ppm</span><span>9</span><span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span><span>0 ppm</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="module">
+        <h2>Module 2: Multi-Solvent Quantitative Calculator</h2>
+        <fieldset>
+            <legend>Product Data</legend>
+            <label for="prod-integral">Product Peak Integral:</label>
+            <input type="number" id="prod-integral" step="0.01" placeholder="e.g., 1.00">
+            <label for="prod-protons">Number of H for the product integral:</label>
+            <input type="number" id="prod-protons" step="1" placeholder="e.g., 3">
+            <label for="prod-mw">Product Molar Mass (g/mol):</label>
+            <input type="number" id="prod-mw" step="0.01" placeholder="e.g., 150.18">
+        </fieldset>
+        <fieldset>
+            <legend>Residual Solvent Data</legend>
+            <label for="quant-solvent">Choose Solvents to Quantify (Ctrl/Cmd + Click):</label>
+            <select id="quant-solvent" multiple>
+                <option value="acetone">acetone</option>
+                <option value="acetonitrile">acetonitrile</option>
+                <option value="anisole">anisole</option>
+                <option value="benzene">benzene</option>
+                <option value="chloroform">chloroform</option>
+                <option value="cpme">cyclopentyl methyl ether (CPME)</option>
+                <option value="cyclohexane">cyclohexane</option>
+                <option value="dichloromethane">dichloromethane</option>
+                <option value="diethyl ether">diethyl ether</option>
+                <option value="diisopropylamine">diisopropylamine</option>
+                <option value="dimethylformamide">dimethylformamide (DMF)</option>
+                <option value="dimethyl sulfoxide">dimethyl sulfoxide (DMSO)</option>
+                <option value="dioxane">dioxane</option>
+                <option value="ethanol">ethanol</option>
+                <option value="ethyl acetate">ethyl acetate</option>
+                <option value="furan">furan</option>
+                <option value="H2O">H2O</option>
+                <option value="hexamethyldisiloxane">hexamethyldisiloxane (HMDSO)</option>
+                <option value="isopropyl acetate">isopropyl acetate (IPAc)</option>
+                <option value="methanol">methanol</option>
+                <option value="2-methyltetrahydrofuran">2-methyltetrahydrofuran (2-MeTHF)</option>
+                <option value="n-heptane">n-heptane</option>
+                <option value="n-hexane">n-hexane</option>
+                <option value="n-methyl-2-pyrrolidone">n-methyl-2-pyrrolidone (NMP)</option>
+                <option value="n-pentane">n-pentane</option>
+                <option value="pyridine">pyridine</option>
+                <option value="tetrahydrofuran">tetrahydrofuran (THF)</option>
+                <option value="toluene">toluene</option>
+            </select>
+            <div id="quant-inputs-container" style="margin-top: 20px;"></div>
+        </fieldset>
+        <button id="calculate-btn">Calculate Amounts</button>
+        <div id="quant-results"></div>
+    </div>
+</div>
+
+<script>
+// --- DATABASE (EXPANDED) ---
+const deuteratedSolventInfo = { "CDCl3": { peak: 7.26, name: "CDCl3", mult: 's' }, "(CD3)2CO": { peak: 2.05, name: "Acetone-d5", mult: 'quint' }, "(CD3)2SO": { peak: 2.50, name: "DMSO-d5", mult: 'quint' }, "C6D6": { peak: 7.16, name: "Benzene-d5", mult: 's' }, "CD3CN": { peak: 1.94, name: "Acetonitrile-d2", mult: 'quint' }, "CD3OD": { peak: 3.31, name: "Methanol-d3", mult: 'quint' }, "D2O": { peak: 4.79, name: "HDO", mult: 's' }, "CD2Cl2": { peak: 5.32, name: "CDHCl2", mult: 't' } };
+const solventData = {
+    "acetone": { mw: 58.08, protons: [{ name: "CH3", num: 6, mult: "s", shifts: { "CDCl3": 2.17, "(CD3)2CO": 2.09, "(CD3)2SO": 2.09, "C6D6": 1.55 } }] },
+    "acetonitrile": { mw: 41.05, protons: [{ name: "CH3", num: 3, mult: "s", shifts: { "CDCl3": 2.10, "(CD3)2CO": 2.05, "(CD3)2SO": 2.07, "C6D6": 1.55 } }] },
+    "anisole": { mw: 108.14, protons: [{ name: "OMe", num: 3, mult: "s", shifts: { "CDCl3": 3.80, "C6D6": 3.27 } }, { name: "Ar-H o", num: 2, mult: "d, 8.8", shifts: { "CDCl3": 6.88, "C6D6": 6.78 } }, { name: "Ar-H m", num: 2, mult: "t, 8.8", shifts: { "CDCl3": 7.27, "C6D6": 7.12 } }, { name: "Ar-H p", num: 1, mult: "t, 7.3", shifts: { "CDCl3": 6.92, "C6D6": 6.89 } } ] },
+    "benzene": { mw: 78.11, protons: [{ name: "CH", num: 6, mult: "s", shifts: { "CDCl3": 7.36, "(CD3)2SO": 7.37, "C6D6": 7.15 } }] },
+    "chloroform": { mw: 119.38, protons: [{ name: "CH", num: 1, mult: "s", shifts: { "CDCl3": 7.26, "(CD3)2SO": 8.32, "C6D6": 6.15 } }] },
+    "cpme": { mw: 100.16, protons: [{ name: "OCH3", num: 3, mult: "s", shifts: { "CDCl3": 3.33, "(CD3)2SO": 3.20 } }, { name: "OCH", num: 1, mult: "m", shifts: { "CDCl3": 3.59, "(CD3)2SO": 3.52 } }, { name: "CH2", num: 8, mult: "m", shifts: { "CDCl3": 1.57, "(CD3)2SO": 1.50 } } ] },
+    "cyclohexane": { mw: 84.16, protons: [{ name: "CH2", num: 12, mult: "s", shifts: { "CDCl3": 1.43, "(CD3)2SO": 1.40, "C6D6": 1.40 } }] },
+    "dichloromethane": { mw: 84.93, protons: [{ name: "CH2", num: 2, mult: "s", shifts: { "CDCl3": 5.30, "(CD3)2SO": 5.76, "C6D6": 4.27 } }] },
+    "diethyl ether": { mw: 74.12, protons: [ { name: "CH2", num: 4, mult: "q, 7", shifts: { "CDCl3": 3.48, "(CD3)2SO": 3.38, "C6D6": 3.26 } }, { name: "CH3", num: 6, mult: "t, 7", shifts: { "CDCl3": 1.21, "(CD3)2SO": 1.09, "C6D6": 1.11 } } ] },
+    "diisopropylamine": { mw: 101.19, protons: [{ name: "CH", num: 2, mult: "sep, 6.3", shifts: { "CDCl3": 2.96, "C6D6": 2.92 } }, { name: "CH3", num: 12, mult: "d, 6.3", shifts: { "CDCl3": 1.02, "C6D6": 1.02 } } ] },
+    "dimethylformamide": { mw: 73.09, protons: [ { name: "CHO", num: 1, mult: "s", shifts: { "CDCl3": 8.02, "(CD3)2SO": 7.95, "C6D6": 7.63 } }, { name: "N-CH3", num: 3, mult: "s", shifts: { "CDCl3": 2.96, "(CD3)2SO": 2.89, "C6D6": 2.36 } }, { name: "N-CH3", num: 3, mult: "s", shifts: { "CDCl3": 2.88, "(CD3)2SO": 2.73, "C6D6": 1.86 } } ] },
+    "dimethyl sulfoxide": { mw: 78.13, protons: [{ name: "CH3", num: 6, mult: "s", shifts: { "CDCl3": 2.62, "(CD3)2SO": 2.54, "C6D6": 1.68 } }] },
+    "dioxane": { mw: 88.11, protons: [{ name: "CH2", num: 8, mult: "s", shifts: { "CDCl3": 3.71, "(CD3)2SO": 3.57, "C6D6": 3.35 } }] },
+    "ethanol": { mw: 46.07, protons: [ { name: "CH2", num: 2, mult: "q, 7.1", shifts: { "CDCl3": 3.72, "(CD3)2SO": 3.44, "C6D6": 3.34 } }, { name: "CH3", num: 3, mult: "t, 7.1", shifts: { "CDCl3": 1.25, "(CD3)2SO": 1.06, "C6D6": 0.96 } } ] },
+    "ethyl acetate": { mw: 88.11, protons: [ { name: "CH2", num: 2, mult: "q, 7.1", shifts: { "CDCl3": 4.12, "(CD3)2SO": 4.03, "C6D6": 3.89 } }, { name: "CH3CO", num: 3, mult: "s", shifts: { "CDCl3": 2.05, "(CD3)2SO": 1.99, "C6D6": 1.65 } }, { name: "CH3", num: 3, mult: "t, 7.1", shifts: { "CDCl3": 1.26, "(CD3)2SO": 1.17, "C6D6": 0.92 } } ] },
+    "furan": { mw: 68.07, protons: [{ name: "α-H", num: 2, mult: "t, 0.8", shifts: { "CDCl3": 7.41, "C6D6": 6.94 } }, { name: "β-H", num: 2, mult: "t, 1.8", shifts: { "CDCl3": 6.37, "C6D6": 6.07 } } ] },
+    "H2O": { mw: 18.02, protons: [{ name: "H2O/HDO", num: 2, mult: "s", shifts: { "CDCl3": 1.56, "(CD3)2SO": 3.33, "C6D6": 0.40 } }] },
+    "hexamethyldisiloxane": { mw: 162.38, protons: [{ name: "CH3", num: 18, mult: "s", shifts: { "CDCl3": 0.06, "C6D6": 0.18 } }] },
+    "isopropyl acetate": { mw: 102.13, protons: [{ name: "CH", num: 1, mult: "sep, 6.3", shifts: { "CDCl3": 4.90, "(CD3)2SO": 4.81 } }, { name: "CH3CO", num: 3, mult: "s", shifts: { "CDCl3": 2.02, "(CD3)2SO": 1.97 } }, { name: "CH3", num: 6, mult: "d, 6.3", shifts: { "CDCl3": 1.24, "(CD3)2SO": 1.17 } } ] },
+    "methanol": { mw: 32.04, protons: [{ name: "CH3", num: 3, mult: "s", shifts: { "CDCl3": 3.49, "(CD3)2SO": 3.16, "C6D6": 3.07 } }] },
+    "2-methyltetrahydrofuran": { mw: 86.13, protons: [{ name: "OCH", num: 1, mult: "m", shifts: { "CDCl3": 3.97, "(CD3)2SO": 3.82 } }, { name: "CH3", num: 3, mult: "d, 6.1", shifts: { "CDCl3": 1.15, "(CD3)2SO": 1.06 } }, { name: "CH2", num: 4, mult: "m", shifts: { "CDCl3": 1.70, "(CD3)2SO": 1.65 } } ] },
+    "n-heptane": { mw: 100.21, protons: [{ name: "CH3", num: 6, mult: "t, 6.8", shifts: { "CDCl3": 0.88, "(CD3)2SO": 0.86 } }, { name: "CH2", num: 10, mult: "m", shifts: { "CDCl3": 1.27, "(CD3)2SO": 1.25 } } ] },
+    "n-hexane": { mw: 86.18, protons: [ { name: "CH2", num: 8, mult: "m", shifts: { "CDCl3": 1.26, "(CD3)2SO": 1.25, "C6D6": 1.24 } }, { name: "CH3", num: 6, mult: "t, 7", shifts: { "CDCl3": 0.88, "(CD3)2SO": 0.86, "C6D6": 0.89 } } ] },
+    "n-methyl-2-pyrrolidone": { mw: 99.13, protons: [{ name: "CH2N", num: 2, mult: "t, 7.0", shifts: { "CDCl3": 3.31, "(CD3)2SO": 3.19 } }, { name: "CH3", num: 3, mult: "s", shifts: { "CDCl3": 2.88, "(CD3)2SO": 2.75 } }, { name: "CH2CO", num: 2, mult: "t, 8.1", shifts: { "CDCl3": 2.33, "(CD3)2SO": 2.19 } }, { name: "CH2", num: 2, mult: "p, 7.5", shifts: { "CDCl3": 2.01, "(CD3)2SO": 1.90 } }] },
+    "n-pentane": { mw: 72.15, protons: [{ name: "CH3", num: 6, mult: "t, 7.4", shifts: { "CDCl3": 0.89, "C6D6": 0.88 } }, { name: "CH2", num: 6, mult: "m", shifts: { "CDCl3": 1.28, "C6D6": 1.25 } }] },
+    "pyridine": { mw: 79.10, protons: [ { name: "α-H", num: 2, mult: "d", shifts: { "CDCl3": 8.61, "(CD3)2SO": 8.59, "C6D6": 8.53 } }, { name: "γ-H", num: 1, mult: "t", shifts: { "CDCl3": 7.74, "(CD3)2SO": 7.80, "C6D6": 6.98 } }, { name: "β-H", num: 2, mult: "t", shifts: { "CDCl3": 7.33, "(CD3)2SO": 7.40, "C6D6": 6.65 } } ] },
+    "tetrahydrofuran": { mw: 72.11, protons: [ { name: "OCH2", num: 4, mult: "m", shifts: { "CDCl3": 3.76, "(CD3)2SO": 3.60, "C6D6": 3.57 } }, { name: "CH2", num: 4, mult: "m", shifts: { "CDCl3": 1.85, "(CD3)2SO": 1.76, "C6D6": 1.40 } } ] },
+    "toluene": { mw: 92.14, protons: [ { name: "Ar-H", num: 5, mult: "m", shifts: { "CDCl3": 7.22, "(CD3)2SO": 7.21, "C6D6": 7.08 } }, { name: "CH3", num: 3, mult: "s", shifts: { "CDCl3": 2.36, "(CD3)2SO": 2.30, "C6D6": 2.11 } } ] }
+};
+
+// --- MAIN SCRIPT LOGIC ---
+document.addEventListener("DOMContentLoaded", function() {
+    
+    // Element references
+    const deuteratedSolventSelect = document.getElementById('deuterated-solvent');
+    const residualSolventsSelect = document.getElementById('residual-solvents');
+    const quantSolventSelect = document.getElementById('quant-solvent');
+    const quantInputsContainer = document.getElementById('quant-inputs-container');
+    const visualizeBtn = document.getElementById('visualize-btn');
+    const calculateBtn = document.getElementById('calculate-btn');
+    const resultsDiv = document.getElementById('quant-results');
+    
+    function drawSignal(display, centerPPM, multStr, colorClass, labelText) {
+        const MAX_PPM = 10;
+        const SPECTROMETER_MHZ = 400;
+        const maxPeakHeight = 120;
+        const parts = multStr.split(',');
+        const type = parts[0].trim();
+        const J_Hz = parts.length > 1 ? parseFloat(parts[1]) : 0;
+        const J_ppm = J_Hz / SPECTROMETER_MHZ;
+        let peaks = [];
+        switch(type) {
+            case 's': peaks.push({ ppm: centerPPM, h: 1, w: 1.5 }); break;
+            case 'd': peaks.push({ ppm: centerPPM - J_ppm / 2, h: 1, w: 1.5 }); peaks.push({ ppm: centerPPM + J_ppm / 2, h: 1, w: 1.5 }); break;
+            case 't': peaks.push({ ppm: centerPPM - J_ppm, h: 0.5, w: 1.5 }); peaks.push({ ppm: centerPPM, h: 1, w: 1.5 }); peaks.push({ ppm: centerPPM + J_ppm, h: 0.5, w: 1.5 }); break;
+            case 'q': peaks.push({ ppm: centerPPM - 1.5 * J_ppm, h: 0.33, w: 1.5 }); peaks.push({ ppm: centerPPM - 0.5 * J_ppm, h: 1, w: 1.5 }); peaks.push({ ppm: centerPPM + 0.5 * J_ppm, h: 1, w: 1.5 }); peaks.push({ ppm: centerPPM + 1.5 * J_ppm, h: 0.33, w: 1.5 }); break;
+            case 'p': case 'quint': 
+                const j_quint = J_Hz > 0 ? J_ppm : 2 / SPECTROMETER_MHZ; 
+                peaks.push({ ppm: centerPPM - 2 * j_quint, h: 0.33, w: 1.5 }); peaks.push({ ppm: centerPPM - j_quint, h: 0.66, w: 1.5 }); peaks.push({ ppm: centerPPM, h: 1, w: 1.5 }); peaks.push({ ppm: centerPPM + j_quint, h: 0.66, w: 1.5 }); peaks.push({ ppm: centerPPM + 2 * j_quint, h: 0.33, w: 1.5 }); break;
+            default: peaks.push({ ppm: centerPPM, h: 1, w: 4 }); break;
+        }
+        const labelDiv = document.createElement('div');
+        labelDiv.className = 'peak-label';
+        labelDiv.style.left = `${100 - (centerPPM / MAX_PPM * 100)}%`;
+        labelDiv.innerText = `${labelText}\n${centerPPM.toFixed(2)} (${type})`;
+        if (colorClass === 'solvent-peak') { labelDiv.style.color = 'blue'; }
+        display.appendChild(labelDiv);
+        peaks.forEach(p => {
+            if (p.ppm >= 0 && p.ppm <= MAX_PPM) {
+                const peakDiv = document.createElement('div');
+                peakDiv.className = `spectrum-peak ${colorClass}`;
+                peakDiv.style.left = `${100 - (p.ppm / MAX_PPM * 100)}%`;
+                peakDiv.style.height = `${p.h * maxPeakHeight}px`;
+                peakDiv.style.width = `${p.w}px`;
+                display.appendChild(peakDiv);
+            }
+        });
+    }
+
+    function visualizeSpectrum() {
+        const display = document.getElementById('spectrum-display');
+        const deutSolventKey = deuteratedSolventSelect.value;
+        const selectedResiduals = Array.from(residualSolventsSelect.selectedOptions).map(opt => opt.value);
+        display.innerHTML = '';
+        const solventInfo = deuteratedSolventInfo[deutSolventKey];
+        if (solventInfo) { drawSignal(display, solventInfo.peak, solventInfo.mult, 'solvent-peak', solventInfo.name); }
+        selectedResiduals.forEach(solventName => {
+            const solvent = solventData[solventName];
+            if (!solvent || !solvent.protons) return;
+            solvent.protons.forEach(group => {
+                const shift = group.shifts[deutSolventKey];
+                if (shift !== undefined) { drawSignal(display, shift, group.mult, 'impurity-peak', solventName); }
+            });
+        });
+    }
+
+    function generateQuantInputs() {
+        quantInputsContainer.innerHTML = '';
+        const selectedSolvents = Array.from(quantSolventSelect.selectedOptions).map(opt => opt.value);
+        selectedSolvents.forEach(solventName => {
+            const solvent = solventData[solventName];
+            if (!solvent) return;
+            const row = document.createElement('div');
+            row.className = 'quant-input-row';
+            const label = document.createElement('label');
+            label.textContent = solventName;
+            label.style.fontWeight = 'bold';
+            const peakSelect = document.createElement('select');
+            peakSelect.id = `peak-select-${solventName}`;
+            if(solvent.protons) {
+                solvent.protons.forEach((group, index) => {
+                    const shift = group.shifts[deuteratedSolventSelect.value];
+                    if(shift !== undefined) {
+                        const option = document.createElement('option');
+                        option.value = index;
+                        option.textContent = `${group.name} (${group.num}H) @ ${shift} ppm`;
+                        peakSelect.appendChild(option);
+                    }
+                });
+            }
+            const integralInput = document.createElement('input');
+            integralInput.type = 'number';
+            integralInput.id = `integral-input-${solventName}`;
+            integralInput.placeholder = 'Integral Value';
+            integralInput.style.marginBottom = '0';
+            row.appendChild(label);
+            row.appendChild(peakSelect);
+            row.appendChild(integralInput);
+            quantInputsContainer.appendChild(row);
+        });
+    }
+
+    function calculateQuant() {
+        const prodIntegral = parseFloat(document.getElementById('prod-integral').value);
+        const prodProtons = parseInt(document.getElementById('prod-protons').value);
+        const prodMW = parseFloat(document.getElementById('prod-mw').value);
+        if (isNaN(prodIntegral) || isNaN(prodProtons) || isNaN(prodMW) || prodProtons <= 0 || prodMW <= 0) {
+            resultsDiv.innerHTML = '<p style="color:red;">Please enter all valid Product Data values.</p>';
+            return;
+        }
+        const selectedSolvents = Array.from(quantSolventSelect.selectedOptions).map(opt => opt.value);
+        let resultsHTML = '<h3>Quantification Results</h3><table><tr><th>Solvent</th><th>Molar %</th><th>Weight % (w/w)</th></tr>';
+        let hasErrors = false;
+        selectedSolvents.forEach(solventName => {
+            const solvent = solventData[solventName];
+            const peakSelect = document.getElementById(`peak-select-${solventName}`);
+            const integralInput = document.getElementById(`integral-input-${solventName}`);
+            if (!peakSelect || !integralInput) return;
+            const solvIntegral = parseFloat(integralInput.value);
+            const solventPeakIndex = parseInt(peakSelect.value);
+            if (isNaN(solvIntegral) || isNaN(solventPeakIndex)) {
+                hasErrors = true;
+                return;
+            }
+            const solventPeak = solvent.protons[solventPeakIndex];
+            const solvProtons = solventPeak.num;
+            const solvMW = solvent.mw;
+            const normProdIntegral = prodIntegral / prodProtons;
+            const normSolvIntegral = solvIntegral / solvProtons;
+            const molarRatio = normSolvIntegral / normProdIntegral;
+            const molarPercent = (molarRatio / (1 + molarRatio)) * 100;
+            const massOf1MoleProduct = 1 * prodMW;
+            const massOfSolventFor1MoleProduct = molarRatio * solvMW;
+            const totalRelativeMass = massOf1MoleProduct + massOfSolventFor1MoleProduct;
+            const weightPercent = (massOfSolventFor1MoleProduct / totalRelativeMass) * 100;
+            resultsHTML += `<tr><td>${solventName}</td><td>${molarPercent.toFixed(3)} %</td><td>${weightPercent.toFixed(3)} %</td></tr>`;
+        });
+        resultsHTML += '</table>';
+        if(hasErrors) {
+            resultsHTML += '<p style="color:red; margin-top:10px;">Please enter an integral value for all selected solvents.</p>';
+        }
+        resultsDiv.innerHTML = resultsHTML;
+    }
+
+    // --- Initial Run and Event Binding ---
+    document.getElementById('quant-results').innerHTML = "Select solvents and enter data for calculation.";
+    quantSolventSelect.addEventListener('change', generateQuantInputs);
+    deuteratedSolventSelect.addEventListener('change', generateQuantInputs);
+    visualizeBtn.addEventListener('click', visualizeSpectrum);
+    calculateBtn.addEventListener('click', calculateQuant);
+    generateQuantInputs();
+});
+</script>
+
+</body>
+</html>

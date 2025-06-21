@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional qNMR Assistant v1.1</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 20px auto; padding: 0 15px; }
+        h1, h2, h3, h4 { color: #005691; }
+        h2 { border-bottom: 2px solid #005691; padding-bottom: 5px; margin-top: 30px;}
+        .container { background-color: #f9f9f9; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .full-width { grid-column: 1 / -1; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        textarea, input[type="number"], select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        textarea { font-family: monospace; min-height: 100px; }
+        button { background-color: #007bff; color: white; padding: 12px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; width: 100%; margin-top: 10px; }
+        button:hover { background-color: #0056b3; }
+        button.manual-btn { background-color: #5a6268; }
+        button.manual-btn:hover { background-color: #494e53; }
+        .results-block { margin-top: 25px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background-color: #fff;}
+        .result-item { border: 2px solid #007bff; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
+        .advice { background-color: #e7f3fe; border-left: 5px solid #2196F3; padding: 15px; margin-top: 15px; border-radius: 4px;}
+        .warning-message { background-color: #fff3cd; border-left: 5px solid #ffc107; padding: 15px; margin: 15px 0; border-radius: 4px; color: #856404; }
+        .error-message { color: red; font-weight: bold; }
+        canvas { border: 1px solid #ccc; margin-top: 15px; width: 100%; }
+    </style>
+</head>
+<body onload="populateStandardDropdown()">
+
+    <div class="container">
+        <h1>Professional qNMR Assistant</h1>
+        
+        <h2>1. Input Data</h2>
+        <div class="form-grid">
+            <div class="form-group full-width">
+                <label for="analyte-shifts">Paste Scientific NMR Notation</label>
+                <textarea id="analyte-shifts" placeholder="e.g., 1H NMR (CDCl3, 500 MHz) δ 7.47 (t, J = 7.8 Hz, 2H)..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="analyte-mw">Analyte Molecular Weight (g/mol)</label>
+                <input type="number" id="analyte-mw" placeholder="e.g., 152.17">
+            </div>
+            <div class="form-group">
+                <label for="analyte-protons">Protons (N) of Analyte Signal</label>
+                <input type="number" id="analyte-protons" placeholder="e.g., 3">
+            </div>
+        </div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="nucleus">Nucleus</label>
+                <select id="nucleus" onchange="updateSignalDropdown()">
+                    <option value="1H">¹H</option>
+                    <option value="19F">¹⁹F</option>
+                    <option value="31P">³¹P</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="solvent">Solvent</label>
+                <select id="solvent" onchange="updateSignalDropdown()">
+                    <option value="DMSO-d6">DMSO-d₆</option>
+                    <option value="CDCl3">CDCl₃</option>
+                    <option value="D2O">D₂O</option>
+                    <option value="CD3OD">CD₃OD</option>
+                    <option value="CD3CN">CD₃CN</option>
+                </select>
+            </div>
+        </div>
+        
+        <button onclick="runAutomaticAnalysis()" class="full-width">Analyze and Visualize (Automatic)</button>
+        <div id="auto-analysis-output">
+            <div id="block1-output" class="results-block" style="display:none;"></div>
+            <div id="block2-output" class="results-block" style="display:none;"></div>
+        </div>
+
+        <h2>3. Advanced Option: Manual Analysis</h2>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="manual-std-select">Select Standard</label>
+                <select id="manual-std-select" onchange="updateSignalDropdown()">
+                    <option value="">-- Choose a standard --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="manual-signal-select">Select Standard Signal</label>
+                <select id="manual-signal-select">
+                    <option value="">-- Choose a standard first --</option>
+                </select>
+            </div>
+        </div>
+        <button onclick="runManualAnalysis()" class="full-width manual-btn">Calculate with Selected Standard</button>
+        <div id="manual-analysis-output" class="results-block" style="display:none;"></div>
+    </div>
+
+    <script>
+        // --- DATABASE OF STANDARDS ---
+        const qnmrStandards = [
+            // From PDF
+            { pn: "01380", name: "Ethylene carbonate", nucleus: "1H", mw: 88.06, signals: { "D2O": [{ppm: 4.5, protons: 4}], "CDCl3": [{ppm: 4.5, protons: 4}], "DMSO-d6": [{ppm: 4.5, protons: 4}], "CD3OD": [{ppm: 4.5, protons: 4}], "CD3CN": [{ppm: 4.5, protons: 4}] } },
+            { pn: "03826", name: "Calcium formate", nucleus: "1H", mw: 130.11, signals: { "D2O": [{ppm: 8.4, protons: 2}], "DMSO-d6": [{ppm: 8.1, protons: 2}], "CD3OD": [{ppm: 8.0, protons: 2}], "CD3CN": [{ppm: 8.0, protons: 2}] } },
+            { pn: "06185", name: "Benzoic acid", nucleus: "1H", mw: 122.12, signals: { "D2O": [{ppm: 7.7, protons: 2}, {ppm: 7.5, protons: 3}], "CDCl3": [{ppm: 8.1, protons: 2}, {ppm: 7.6, protons: 1}, {ppm: 7.5, protons: 2}], "DMSO-d6": [{ppm: 13.0, protons: 1}, {ppm: 7.9, protons: 2}, {ppm: 7.5, protons: 3}] } },
+            { pn: "06856", name: "Duroquinone", nucleus: "1H", mw: 164.20, signals: { "CDCl3": [{ppm: 2.0, protons: 12}], "DMSO-d6": [{ppm: 2.0, protons: 12}] } },
+            { pn: "07038", name: "Dimethyl terephthalate", nucleus: "1H", mw: 194.19, signals: { "D2O": [{ppm: 8.1, protons: 4}, {ppm: 4.0, protons: 6}], "CDCl3": [{ppm: 8.1, protons: 4}, {ppm: 3.9, protons: 6}], "DMSO-d6": [{ppm: 8.1, protons: 4}, {ppm: 3.9, protons: 6}], "CD3OD": [{ppm: 8.1, protons: 4}, {ppm: 3.9, protons: 6}] } },
+            { pn: "14659", name: "Potassium hydrogen phthalate", nucleus: "1H", mw: 204.22, signals: { "D2O": [{ppm: 7.5, protons: 4}], "DMSO-d6": [{ppm: 7.9, protons: 4}] } },
+            { pn: "40384", name: "1,2,4,5-Tetrachloro-3-nitro-benzene", nucleus: "1H", mw: 260.88, signals: { "CDCl3": [{ppm: 7.8, protons: 1}], "DMSO-d6": [{ppm: 8.5, protons: 1}], "CD3CN": [{ppm: 6.8, protons: 1}] } },
+            { pn: "41867", name: "Dimethyl sulfone", nucleus: "1H", mw: 94.13, signals: { "D2O": [{ppm: 3.0, protons: 6}], "CDCl3": [{ppm: 3.0, protons: 6}], "DMSO-d6": [{ppm: 3.0, protons: 6}], "CD3OD": [{ppm: 3.0, protons: 6}], "CD3CN": [{ppm: 2.9, protons: 6}] } },
+            { pn: "42582", name: "Ethyl 4-(dimethylamino)benzoate", nucleus: "1H", mw: 193.25, signals: { "CDCl3": [{ppm: 7.9, protons: 2}, {ppm: 6.6, protons: 2}, {ppm: 4.2, protons: 2}, {ppm: 3.0, protons: 6}, {ppm: 1.3, protons: 3}], "DMSO-d6": [{ppm: 7.7, protons: 2}, {ppm: 6.6, protons: 2}, {ppm: 4.1, protons: 2}, {ppm: 2.9, protons: 6}, {ppm: 1.2, protons: 3}] } },
+            { pn: "50409", name: "Thymol", nucleus: "1H", mw: 150.22, signals: { "CDCl3": [{ppm: 7.1, protons: 1}, {ppm: 6.8, protons: 1}, {ppm: 6.6, protons: 1}, {ppm: 3.2, protons: 1}, {ppm: 2.3, protons: 3}, {ppm: 1.2, protons: 6}], "DMSO-d6": [{ppm: 9.3, protons: 1}, {ppm: 6.9, protons: 1}, {ppm: 6.6, protons: 1}, {ppm: 6.5, protons: 1}, {ppm: 3.1, protons: 1}, {ppm: 2.1, protons: 3}, {ppm: 1.1, protons: 6}] } },
+            { pn: "55177", name: "Benzyl benzoate", nucleus: "1H", mw: 212.24, signals: { "CDCl3": [{ppm: 8.1, protons: 2}, {ppm: 7.5, protons: 3}, {ppm: 7.4, protons: 3}, {ppm: 5.3, protons: 2}], "DMSO-d6": [{ppm: 8.0, protons: 2}, {ppm: 7.6, protons: 3}, {ppm: 7.4, protons: 3}, {ppm: 5.4, protons: 2}] } },
+            { pn: "74599", name: "1,3,5-Trimethoxy-benzene", nucleus: "1H", mw: 168.19, signals: { "CDCl3": [{ppm: 6.1, protons: 3}, {ppm: 3.8, protons: 9}], "DMSO-d6": [{ppm: 6.1, protons: 3}, {ppm: 3.7, protons: 9}] } },
+            { pn: "74658", name: "1,2,4,5-Tetramethyl-benzene (Durene)", nucleus: "1H", mw: 134.22, signals: { "CDCl3": [{ppm: 6.9, protons: 2}, {ppm: 2.2, protons: 12}], "DMSO-d6": [{ppm: 6.8, protons: 2}, {ppm: 2.1, protons: 12}] } },
+            { pn: "89151", name: "Dimethylmalonic acid", nucleus: "1H", mw: 132.12, signals: { "D2O": [{ppm: 1.5, protons: 6}], "DMSO-d6": [{ppm: 1.4, protons: 6}], "CD3OD": [{ppm: 1.5, protons: 6}] } },
+            { pn: "92816", name: "Maleic acid", nucleus: "1H", mw: 116.07, signals: { "D2O": [{ppm: 6.3, protons: 2}], "DMSO-d6": [{ppm: 6.2, protons: 2}] } },
+            { pn: "94681", name: "Methyl 3,5-dinitrobenzoate", nucleus: "1H", mw: 226.12, signals: { "CDCl3": [{ppm: 9.2, protons: 1}, {ppm: 9.1, protons: 2}, {ppm: 4.0, protons: 3}], "DMSO-d6": [{ppm: 9.2, protons: 1}, {ppm: 9.1, protons: 2}, {ppm: 4.0, protons: 3}] } },
+            { pn: "05498", name: "Triphenyl phosphate", nucleus: "31P", mw: 326.28, signals: { "CDCl3": [{ppm: -17.7, protons: 1}], "DMSO-d6": [{ppm: -17.3, protons: 1}], "CD3OD": [{ppm: -17.5, protons: 1}], "CD3CN": [{ppm: -17.0, protons: 1}] } },
+            { pn: "92214", name: "Potassium phosphate monobasic", nucleus: "31P", mw: 136.09, signals: { "D2O": [{ppm: 0.08, protons: 1}] } },
+            { pn: "96708", name: "Phosphonoacetic acid", nucleus: "31P", mw: 140.03, signals: { "D2O": [{ppm: 15.7, protons: 1}], "DMSO-d6": [{ppm: 14.9, protons: 1}], "CD3OD": [{ppm: 17.7, protons: 1}] } },
+            { pn: "07563", name: "4,4'-Difluorobenzophenone", nucleus: "19F", mw: 218.20, signals: { "CDCl3": [{ppm: -106.5, protons: 2}], "DMSO-d6": [{ppm: -108.1, protons: 2}], "CD3OD": [{ppm: -108.3, protons: 2}] } },
+            { pn: "53396", name: "2,4-Dichlorobenzotrifluoride", nucleus: "19F", mw: 215.00, signals: { "CDCl3": [{ppm: -61.2, protons: 3}], "DMSO-d6": [{ppm: -65.4, protons: 3}], "CD3CN": [{ppm: -63.0, protons: 3}] } },
+            { pn: "80730", name: "2-Chloro-4-fluorotoluene", nucleus: "19F", mw: 144.57, signals: { "CDCl3": [{ppm: -115.3, protons: 1}], "DMSO-d6": [{ppm: -117.7, protons: 1}], "CD3OD": [{ppm: -117.3, protons: 1}] } },
+            // Additional Common Standards
+            { pn: "DSS", name: "DSS (Silicic acid)", nucleus: "1H", mw: 218.32, signals: { "D2O": [{ppm: 0.0, protons: 9}, {ppm: 0.63, protons: 2}, {ppm: 1.75, protons: 2}, {ppm: 2.91, protons: 2}] } },
+            { pn: "Caffeine", name: "Caffeine", nucleus: "1H", mw: 194.19, signals: { "CDCl3": [{ppm: 7.5, protons: 1}, {ppm: 4.0, protons: 3}, {ppm: 3.6, protons: 3}, {ppm: 3.4, protons: 3}], "D2O": [{ppm: 7.9, protons: 1}, {ppm: 3.9, protons: 3}, {ppm: 3.4, protons: 3}, {ppm: 3.2, protons: 3}] } },
+            { pn: "14Dioxane", name: "1,4-Dioxane", nucleus: "1H", mw: 88.11, signals: { "D2O": [{ppm: 3.75, protons: 8}], "CDCl3": [{ppm: 3.71, protons: 8}], "DMSO-d6": [{ppm: 3.57, protons: 8}] } }
+        ];
+        const solventResidualPeaks = { '1H': { "CDCl3": [7.26], "DMSO-d6": [2.50, 3.33], "D2O": [4.79], "CD3OD": [3.31, 4.87], "CD3CN": [1.94] } };
+
+        // --- SETUP AND UTILITY FUNCTIONS ---
+        function populateStandardDropdown() {
+            const select = document.getElementById('manual-std-select');
+            qnmrStandards.forEach(std => {
+                const option = document.createElement('option');
+                option.value = std.pn;
+                option.textContent = `${std.name} (${std.nucleus})`;
+                select.appendChild(option);
+            });
+        }
+
+        function updateSignalDropdown() {
+            const stdSelect = document.getElementById('manual-std-select');
+            const signalSelect = document.getElementById('manual-signal-select');
+            const selectedPn = stdSelect.value;
+            const solvent = document.getElementById('solvent').value;
+            signalSelect.innerHTML = '<option value="">-- Choose a signal --</option>';
+            if (!selectedPn) return;
+            const std = qnmrStandards.find(s => s.pn === selectedPn);
+            if (std && std.signals[solvent]) {
+                std.signals[solvent].forEach((signal, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = `Peak at ${signal.ppm} ppm (N=${signal.protons})`;
+                    signalSelect.appendChild(option);
+                });
+            }
+        }
+
+        function parseShiftsFromText(text) {
+            return [...text.matchAll(/(-?\d+\.\d+)\s*\(/g)].map(m => parseFloat(m[1]));
+        }
+
+        function checkOverlap(ppm, interferencePPMs) {
+            const MIN_SEPARATION = 0.3;
+            for (const interferenceShift of interferencePPMs) {
+                if (Math.abs(ppm - interferenceShift) < MIN_SEPARATION) return true;
+            }
+            return false;
+        }
+
+        function drawSpectrum(canvasId, analytePPMs, standardPPMs, solventPPMs, nucleus) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width, height = canvas.height;
+            let ppmMin, ppmMax;
+            if (nucleus === '1H') { [ppmMin, ppmMax] = [-1, 11]; } 
+            else if (nucleus === '31P') { [ppmMin, ppmMax] = [-30, 30]; } 
+            else if (nucleus === '19F') { [ppmMin, ppmMax] = [-150, -50]; } 
+            else { [ppmMin, ppmMax] = [0, 10]; }
+            const ppmRange = ppmMax - ppmMin;
+            const padding = 35;
+            const ppmToX = (ppm) => width - padding - ((ppm - ppmMin) / ppmRange) * (width - 2 * padding);
+            
+            ctx.clearRect(0, 0, width, height);
+            ctx.font = "12px Arial";
+            ctx.textAlign = 'center';
+            ctx.beginPath();
+            ctx.moveTo(padding, height - padding);
+            ctx.lineTo(width - padding, height - padding);
+            ctx.stroke();
+
+            for (let i = Math.floor(ppmMin); i <= Math.ceil(ppmMax); i++) {
+                if (i % (nucleus === '1H' ? 1 : 10) === 0) {
+                    const x = ppmToX(i);
+                    ctx.moveTo(x, height - padding);
+                    ctx.lineTo(x, height - padding + 5);
+                    ctx.stroke();
+                    ctx.fillText(i, x, height - padding + 20);
+                }
+            }
+            ctx.save();
+            ctx.strokeStyle = '#28a745';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]);
+            solventPPMs.forEach(ppm => {
+                const x = ppmToX(ppm);
+                ctx.beginPath();
+                ctx.moveTo(x, height - padding);
+                ctx.lineTo(x, padding + 20);
+                ctx.stroke();
+            });
+            ctx.restore();
+
+            ctx.strokeStyle = 'blue';
+            ctx.lineWidth = 2;
+            analytePPMs.forEach(ppm => {
+                const x = ppmToX(ppm);
+                ctx.beginPath();
+                ctx.moveTo(x, height - padding);
+                ctx.lineTo(x, padding);
+                ctx.stroke();
+            });
+
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 2;
+            standardPPMs.forEach(ppm => {
+                const x = ppmToX(ppm);
+                ctx.beginPath();
+                ctx.moveTo(x, height - padding);
+                ctx.lineTo(x, padding);
+                ctx.stroke();
+            });
+
+            ctx.textAlign = 'left';
+            ctx.fillStyle = 'blue'; ctx.fillRect(padding, 5, 10, 10);
+            ctx.fillStyle = 'black'; ctx.fillText('Analyte', padding + 15, 14);
+            ctx.fillStyle = 'red'; ctx.fillRect(padding + 80, 5, 10, 10);
+            ctx.fillStyle = 'black'; ctx.fillText('Standard', padding + 95, 14);
+            ctx.fillStyle = '#28a745'; ctx.fillRect(padding + 170, 5, 10, 10);
+            ctx.fillStyle = 'black'; ctx.fillText('Solvent', padding + 185, 14);
+        }
+
+        // --- MAIN WORKFLOW: AUTOMATIC ---
+        function runAutomaticAnalysis() {
+            const block1Out = document.getElementById('block1-output');
+            const block2Out = document.getElementById('block2-output');
+            block1Out.innerHTML = '';
+            block1Out.style.display = 'none';
+            block2Out.innerHTML = '';
+            block2Out.style.display = 'none';
+
+            const analyteMW = parseFloat(document.getElementById('analyte-mw').value);
+            const analyteProtons = parseInt(document.getElementById('analyte-protons').value);
+            const analyteShiftsRaw = document.getElementById('analyte-shifts').value;
+            const nucleus = document.getElementById('nucleus').value;
+            const solvent = document.getElementById('solvent').value;
+
+            if (isNaN(analyteMW) || analyteMW <= 0 || isNaN(analyteProtons) || analyteProtons <= 0 || !analyteShiftsRaw.trim()) {
+                block1Out.innerHTML = '<p class="error-message">Error: Please fill all input fields.</p>';
+                block1Out.style.display = 'block';
+                return;
+            }
+
+            const analyteShifts = parseShiftsFromText(analyteShiftsRaw);
+            block1Out.style.display = 'block';
+            if (analyteShifts.length === 0) {
+                block1Out.innerHTML = '<h2>2. Interpreted Data (Automatic)</h2><p class="error-message">No valid chemical shifts found in the text.</p>';
+                return;
+            }
+            block1Out.innerHTML = `<h2>2. Interpreted Data (Automatic)</h2><p>Identified chemical shifts: <strong>${analyteShifts.join(', ')} ppm</strong></p>`;
+
+            const solventPPMs = (solventResidualPeaks[nucleus] && solventResidualPeaks[nucleus][solvent]) || [];
+            const allInterferencePPMs = [...analyteShifts, ...solventPPMs];
+            
+            const suitable = [];
+            qnmrStandards.forEach(std => {
+                if (std.nucleus === nucleus && std.signals[solvent]) {
+                    std.signals[solvent].forEach(stdSignal => {
+                        if (!checkOverlap(stdSignal.ppm, allInterferencePPMs)) {
+                            suitable.push({ std, stdSignal });
+                        }
+                    });
+                }
+            });
+
+            const recommendations = suitable.map(item => {
+                const { std, stdSignal } = item;
+                const massRatio = (analyteProtons / stdSignal.protons) * (std.mw / analyteMW);
+                return { std, stdSignal, massRatio, sortKey: Math.abs(massRatio - 1) };
+            }).sort((a, b) => a.sortKey - b.sortKey);
+            
+            block2Out.style.display = 'block';
+            let html = '<h3>Recommended Standards</h3>';
+            if (recommendations.length === 0) {
+                html += '<p>No suitable standard found with signals separated from analyte and/or solvent peaks.</p>';
+            } else {
+                recommendations.slice(0, 3).forEach((rec, index) => {
+                    const { std, stdSignal, massRatio } = rec;
+                    const canvasId = `auto-canvas-${index}`;
+                    html += `<div class="result-item"><h4>${std.name} (PN: ${std.pn})</h4><canvas id="${canvasId}" width="700" height="150"></canvas><div class="advice"><p>Recommended signal to use is at <strong>${stdSignal.ppm} ppm</strong> (N=${stdSignal.protons}).</p><p>Calculated weight ratio (Standard / Analyte): <strong>${massRatio.toFixed(2)}</strong>.</p><p><strong>Practical example:</strong> for <strong>10 mg</strong> of analyte, weigh approx. <strong>${(10 * massRatio).toFixed(2)} mg</strong> of standard.</p></div></div>`;
+                });
+            }
+            block2Out.innerHTML = html;
+
+            setTimeout(() => {
+                recommendations.slice(0, 3).forEach((rec, index) => {
+                    drawSpectrum(`auto-canvas-${index}`, analyteShifts, [rec.stdSignal.ppm], solventPPMs, nucleus);
+                });
+            }, 0);
+        }
+
+        // --- MAIN WORKFLOW: MANUAL ---
+        function runManualAnalysis() {
+            const manualOut = document.getElementById('manual-analysis-output');
+            manualOut.innerHTML = '';
+            manualOut.style.display = 'block';
+
+            const analyteMW = parseFloat(document.getElementById('analyte-mw').value);
+            const analyteProtons = parseInt(document.getElementById('analyte-protons').value);
+            const analyteShiftsRaw = document.getElementById('analyte-shifts').value;
+            const nucleus = document.getElementById('nucleus').value;
+            const solvent = document.getElementById('solvent').value;
+            const selectedPn = document.getElementById('manual-std-select').value;
+            const selectedSignalIndex = document.getElementById('manual-signal-select').value;
+
+            if (isNaN(analyteMW) || isNaN(analyteProtons) || !analyteShiftsRaw.trim() || !selectedPn || selectedSignalIndex === "") {
+                manualOut.innerHTML = '<p class="error-message">Error: Please fill all analyte fields and select a standard and a signal.</p>';
+                return;
+            }
+
+            const analyteShifts = parseShiftsFromText(analyteShiftsRaw);
+            const solventPPMs = (solventResidualPeaks[nucleus] && solventResidualPeaks[nucleus][solvent]) || [];
+            const allInterferencePPMs = [...analyteShifts, ...solventPPMs];
+            
+            const std = qnmrStandards.find(s => s.pn === selectedPn);
+            const stdSignal = std.signals[solvent][selectedSignalIndex];
+            const massRatio = (analyteProtons / stdSignal.protons) * (std.mw / analyteMW);
+
+            let html = `<h3>Manual Analysis Result</h3><div class="result-item"><h4>${std.name} (PN: ${std.pn})</h4>`;
+            if (checkOverlap(stdSignal.ppm, allInterferencePPMs)) {
+                html += `<div class="warning-message"><strong>Warning:</strong> The selected standard signal at ${stdSignal.ppm} ppm may overlap with an analyte or solvent signal.</div>`;
+            }
+            const canvasId = "manual-canvas";
+            html += `<canvas id="${canvasId}" width="700" height="150"></canvas><div class="advice"><p>Forced calculation using the signal at <strong>${stdSignal.ppm} ppm</strong> (N=${stdSignal.protons}).</p><p>Calculated weight ratio (Standard / Analyte): <strong>${massRatio.toFixed(2)}</strong>.</p><p><strong>Practical example:</strong> for <strong>10 mg</strong> of analyte, weigh approx. <strong>${(10 * massRatio).toFixed(2)} mg</strong> of standard.</p></div></div>`;
+            
+            manualOut.innerHTML = html;
+            setTimeout(() => { drawSpectrum(canvasId, analyteShifts, [stdSignal.ppm], solventPPMs, nucleus); }, 0);
+        }
+    </script>
+</body>
+</html>
