@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-S7BR3ME7C7"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-S7BR3ME7C7');
+</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tool Cristallizzazione - v3 Analisi Interattiva</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f6; color: #333; line-height: 1.6; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: auto; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1, h2 { color: #005f73; border-bottom: 1px solid #e0e0e0; padding-bottom: 5px;}
+        
+        .input-tabs { border-bottom: 2px solid #ccc; margin-bottom: 15px; }
+        .tab-button { background: none; border: none; font-size: 16px; padding: 10px 15px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+        .tab-button.active { border-bottom-color: #0077b6; font-weight: bold; color: #005f73;}
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        #dataTable { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        #dataTable th, #dataTable td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        #dataTable th { background-color: #eef7f9; }
+        #dataTable td[contenteditable="true"]:focus { background-color: #f0f8ff; outline: 2px solid #0077b6; }
+        .delete-row-btn { cursor: pointer; color: #d9534f; font-weight: bold; }
+        #addRowBtn { margin-top: 10px; padding: 8px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        
+        #file-upload-status { margin-top: 10px; color: #005f73; font-style: italic;}
+        
+        #processButton { display: block; width: 100%; padding: 12px; margin-top: 20px; background-color: #0077b6; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; transition: background-color 0.3s; }
+        #processButton:hover { background-color: #023e8a; }
+
+        .chart-section, .results-section { margin-top: 30px; }
+        #recommendations-container { background-color: #eef7f9; border-left: 5px solid #0077b6; padding: 1px 15px; margin-top: 10px; border-radius: 4px; }
+        #concentration-selector-label { font-weight: bold; margin-right: 10px; }
+        #concentrationSelector { padding: 5px; border-radius: 4px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Mappa della Zona Metastabile (MSZW)</h1>
+
+        <div class="input-section">
+            <h2>1. Dati di Input</h2>
+            <div class="input-tabs">
+                <button class="tab-button active" onclick="showTab('manual', this)">Tabella Manuale</button>
+                <button class="tab-button" onclick="showTab('upload', this)">Carica File</button>
+            </div>
+
+            <div id="manual" class="tab-content active">
+                <p>Modifica i dati direttamente o aggiungi nuove righe. Premi il pulsante in fondo per aggiornare il grafico.</p>
+                <table id="dataTable">
+                    <thead><tr><th>Concentrazione</th><th>Temp. Clear (°C)</th><th>Temp. Cloud (°C)</th><th></th></tr></thead>
+                    <tbody id="dataTableBody"></tbody>
+                </table>
+                <button id="addRowBtn">+ Aggiungi Riga</button>
+            </div>
+
+            <div id="upload" class="tab-content">
+                <p>Seleziona un file <strong>.csv</strong>, <strong>.xlsx</strong>, o <strong>.xls</strong>.</p>
+                <input type="file" id="fileInput" accept=".csv, .xlsx, .xls">
+                <div id="file-upload-status"></div>
+            </div>
+
+            <button id="processButton">Crea/Aggiorna Grafico e Analisi</button>
+        </div>
+
+        <div class="chart-section">
+            <h2>2. Visualizzazione Grafica</h2>
+            <canvas id="crystallizationChart"></canvas>
+        </div>
+        
+        <div class="results-section">
+            <h2>3. Analisi e Raccomandazioni</h2>
+            <div id="analysis-selector-container">
+                <label id="concentration-selector-label" for="concentrationSelector">Scegli la concentrazione da analizzare:</label>
+                <select id="concentrationSelector"></select>
+            </div>
+            <div id="recommendations-container">
+                <div id="recommendations"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- GESTIONE INTERFACCIA ---
+        function showTab(tabName, element) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            element.classList.add('active');
+        }
+
+        const addRowBtn = document.getElementById('addRowBtn');
+        const tableBody = document.getElementById('dataTableBody');
+
+        function createRow(data = ['', '', '']) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td contenteditable="true">${data[0]}</td>
+                <td contenteditable="true">${data[1]}</td>
+                <td contenteditable="true">${data[2]}</td>
+                <td class="delete-row-btn" title="Elimina riga" onclick="deleteRow(this)">X</td>
+            `;
+            tableBody.appendChild(row);
+        }
+
+        function deleteRow(btn) { btn.parentElement.remove(); }
+        addRowBtn.addEventListener('click', () => createRow());
+
+        // --- GESTIONE UPLOAD FILE ---
+        document.getElementById('fileInput').addEventListener('change', handleFile);
+
+        function handleFile(event) {
+            const file = event.target.files[0];
+            const statusDiv = document.getElementById('file-upload-status');
+            if (!file) { statusDiv.innerText = ""; return; }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = e.target.result;
+                let parsedData;
+                try {
+                    if (file.name.endsWith('.csv')) parsedData = parseCSV(data);
+                    else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) parsedData = parseExcel(data);
+                    populateTable(parsedData);
+                    statusDiv.innerText = `Caricato "${file.name}". Dati inseriti nella tabella.`;
+                    showTab('manual', document.querySelector('.tab-button'));
+                    processDataFromTable();
+                } catch (error) { alert("Errore nella lettura del file: " + error.message); statusDiv.innerText = "Caricamento fallito."; }
+            };
+            if (file.name.endsWith('.csv')) reader.readAsText(e.target.files[0], 'UTF-8');
+            else reader.readAsArrayBuffer(e.target.files[0]);
+        }
+
+        function parseCSV(csvText) {
+            const separator = csvText.includes(';') ? ';' : ',';
+            const rows = csvText.trim().split(/\r?\n/);
+            if (rows.length > 0 && isNaN(parseFloat(rows[0].split(separator)[0]))) rows.shift();
+            return rows.map(row => row.split(separator).map(cell => cell.trim()));
+        }
+
+        function parseExcel(data) {
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            return XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "", range: 1 });
+        }
+        
+        function populateTable(dataArray) {
+            tableBody.innerHTML = '';
+            dataArray.forEach(rowData => { if(rowData.length >= 3) createRow(rowData); });
+        }
+        
+        // --- LOGICA PRINCIPALE ---
+        document.getElementById('processButton').addEventListener('click', processDataFromTable);
+        let myChart = null;
+        
+        function processDataFromTable() {
+            const rows = tableBody.querySelectorAll('tr');
+            const dataForChart = [];
+            let invalidRows = 0;
+
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length < 3) return;
+                const concentration = parseFloat(cells[0].innerText.replace(',', '.'));
+                const tempClear = parseFloat(cells[1].innerText.replace(',', '.'));
+                const tempCloud = parseFloat(cells[2].innerText.replace(',', '.'));
+                if (!isNaN(concentration) && !isNaN(tempClear) && !isNaN(tempCloud)) {
+                    dataForChart.push({ conc: concentration, clear: tempClear, cloud: tempCloud });
+                } else if (cells[0].innerText || cells[1].innerText || cells[2].innerText) {
+                    invalidRows++;
+                }
+            });
+
+            if (invalidRows > 0) alert(`Attenzione: ${invalidRows} riga/righe contiene dati non validi ed è stata ignorata.`);
+            if (dataForChart.length < 2) { alert("Sono necessari almeno due punti dati validi per disegnare le curve."); return; }
+            
+            // Ordina per concentrazione crescente
+            dataForChart.sort((a,b) => a.conc - b.conc);
+            
+            const clearPoints = dataForChart.map(d => ({ x: d.clear, y: d.conc }));
+            const cloudPoints = dataForChart.map(d => ({ x: d.cloud, y: d.conc }));
+
+            drawChart(clearPoints, cloudPoints);
+            
+            // NUOVO: Popola il menu a tendina e avvia la prima analisi
+            updateConcentrationSelector(dataForChart);
+            analyzeData(document.getElementById('concentrationSelector').value, clearPoints, cloudPoints);
+        }
+
+        // NUOVO: Aggiunto listener per il cambio di selezione nel menu a tendina
+        document.getElementById('concentrationSelector').addEventListener('change', (event) => {
+            const selectedConc = event.target.value;
+            // Recupera i dati direttamente dal grafico già esistente per efficienza
+            const clearPoints = myChart.data.datasets[0].data;
+            const cloudPoints = myChart.data.datasets[1].data;
+            analyzeData(selectedConc, clearPoints, cloudPoints);
+        });
+
+        // NUOVO: Funzione per popolare il menu a tendina
+        function updateConcentrationSelector(dataForChart) {
+            const selector = document.getElementById('concentrationSelector');
+            selector.innerHTML = ''; // Pulisce le opzioni vecchie
+            
+            // Crea un'opzione per ogni concentrazione unica
+            const uniqueConcentrations = [...new Set(dataForChart.map(d => d.conc))];
+            uniqueConcentrations.forEach(conc => {
+                const option = document.createElement('option');
+                option.value = conc;
+                option.text = `${conc}`; // Testo visualizzato nell'opzione
+                selector.appendChild(option);
+            });
+        }
+
+
+        function drawChart(clearData, cloudData) {
+            const ctx = document.getElementById('crystallizationChart').getContext('2d');
+            if (myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'line', data: { datasets: [{ label: 'Curva di Solubilità (Clear Point)', data: clearData, borderColor: 'rgb(21, 153, 172)', borderWidth: 2.5, tension: 0.2, pointRadius: 5, pointBackgroundColor: 'rgb(21, 153, 172)', fill: '+1', backgroundColor: 'rgba(255, 165, 0, 0.3)', }, { label: 'Curva di Nucleazione (Cloud Point)', data: cloudData, borderColor: 'rgb(255, 99, 132)', borderWidth: 2.5, tension: 0.2, pointRadius: 5, pointBackgroundColor: 'rgb(255, 99, 132)', fill: false }] },
+                options: { responsive: true, maintainAspectRatio: true, scales: { x: { type: 'linear', position: 'bottom', title: { display: true, text: 'Temperatura (°C)', font: { size: 14 } } }, y: { beginAtZero: false, title: { display: true, text: 'Concentrazione (g/L o %w/w)', font: { size: 14 } } } }, plugins: { title: { display: true, text: 'Mappa di Cristallizzazione', font: { size: 18 } }, legend: { position: 'top' }, tooltip: { callbacks: { label: function(context) { return `${context.dataset.label}: (${context.parsed.x.toFixed(1)} °C, ${context.parsed.y.toFixed(1)})`; } } } } }
+            });
+        }
+
+        // MODIFICATO: La funzione ora accetta la concentrazione target come parametro
+        function analyzeData(targetConcentration, clearPoints, cloudPoints) {
+            const recommendationsDiv = document.getElementById('recommendations');
+            recommendationsDiv.innerHTML = ""; // Pulisce le vecchie raccomandazioni
+
+            const targetConc = parseFloat(targetConcentration);
+            if (isNaN(targetConc)) return;
+
+            // Trova i punti clear e cloud per la concentrazione selezionata
+            const targetClearPoint = clearPoints.find(p => p.y === targetConc);
+            const targetCloudPoint = cloudPoints.find(p => p.y === targetConc);
+
+            if (!targetClearPoint || !targetCloudPoint) {
+                recommendationsDiv.innerHTML = `<p>Dati non trovati per la concentrazione ${targetConc}.</p>`;
+                return;
+            }
+            
+            const T_clear = targetClearPoint.x;
+            const T_cloud = targetCloudPoint.x;
+            const mszw = T_clear - T_cloud;
+
+            if (mszw < 0) {
+                 recommendationsDiv.innerHTML = `<p>Attenzione: per la concentrazione ${targetConc}, la temperatura di Cloud Point (${T_cloud}°C) è maggiore di quella di Clear Point (${T_clear}°C). Controllare i dati.</p>`;
+                 return;
+            }
+
+            const seedingTemp = T_clear - (mszw * 0.4); // Suggerimento al 40% della MSZW
+            
+            let html = `<h4>Analisi per Concentrazione: <span style="color: #0077b6;">${targetConc}</span></h4><ul>`;
+            html += `<li><b>Temperatura di dissoluzione:</b> ${T_clear.toFixed(1)} °C</li>`;
+            html += `<li><b>Temperatura di nucleazione:</b> ${T_cloud.toFixed(1)} °C</li>`;
+            html += `<li><b>Ampiezza Zona Metastabile (MSZW):</b> <strong style="color: #d9534f;">${mszw.toFixed(1)} °C</strong></li></ul>`;
+            html += `<h4>Strategia di Cristallizzazione Suggerita:</h4><ol>`;
+            html += `<li>Raffreddare la soluzione da <strong>${T_clear.toFixed(1)} °C</strong> fino a circa <strong>${seedingTemp.toFixed(1)} °C</strong>.</li>`;
+            html += `<li>A <strong>${seedingTemp.toFixed(1)} °C</strong>, introdurre i cristalli di semina (seeding).</li>`;
+            html += `<li>Mantenere la temperatura per la maturazione, poi raffreddare lentamente per massimizzare la resa.</li></ol>`;
+            recommendationsDiv.innerHTML = html;
+        }
+
+        // --- ESECUZIONE INIZIALE ---
+        document.addEventListener('DOMContentLoaded', () => {
+            populateTable([ ['100', '60', '50'], ['120', '68', '58'], ['140', '75', '65'], ['160', '82', '71'] ]);
+            processDataFromTable();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-S7BR3ME7C7"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-S7BR3ME7C7');
+</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tool 3: Experimental HSP Sphere Analyzer (Final)</title>
+    
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    
+    <style>
+        :root {
+            --primary-color: #16a085;
+            --secondary-color: #27ae60;
+            --text-color: #2c3e50;
+            --background-color: #f4f6f6;
+            --container-color: #ffffff;
+            --accent-color: #2980b9;
+            --report-color: #8e44ad;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 2rem; background-color: var(--background-color); color: var(--text-color); }
+        .container { width: 100%; max-width: 1100px; margin: auto; background-color: var(--container-color); padding: 2.5rem; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+        h1, h2, h3, h4 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 0.5rem; margin-top: 0; }
+        h2 { margin-top: 2rem; font-size: 1.5rem; }
+        h3 { border-bottom: none; color: var(--secondary-color); margin: 1.5rem 0 1rem 0;}
+        h4 { font-size: 1.1em; color: var(--primary-color); }
+        .main-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; align-items: flex-start; }
+        .intro-box { background-color: #e8f6f3; border-left: 5px solid var(--primary-color); padding: 1.5rem 2rem; margin-bottom: 2.5rem; line-height: 1.6; }
+        .intro-box hr { border: 0; border-top: 1px solid #d0e0ed; margin: 1.5rem 0; }
+        .intro-box p, .intro-box li { font-size: 0.95em; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { font-weight: bold; display: block; margin-bottom: 0.5rem; }
+        .form-group input, .form-group select { width: 100%; padding: 0.6rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1rem; }
+        .data-point-adder { display: flex; gap: 10px; align-items: center; }
+        #data-points-list { list-style: none; padding: 0; margin-top: 1rem; max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; }
+        #data-points-list li { padding: 0.5rem 0.75rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; }
+        .score-box { background-color: var(--secondary-color); color: white; text-align: center; padding: 1rem; border-radius: 8px; margin-top: 1rem; }
+        .score-box h3 { color: white; margin: 0 0 0.5rem 0; border: none; }
+        .score-box p { font-size: 2.5rem; font-weight: bold; margin: 0; color: #fff; }
+        .btn { border: none; border-radius: 4px; padding: 0.8rem 1.5rem; cursor: pointer; color: white; transition: background-color 0.2s; font-weight: bold; width: 100%; }
+        .btn-primary { background-color: var(--primary-color); }
+        .btn-secondary { background-color: #7f8c8d; }
+        .btn-accent { background-color: var(--accent-color); }
+        .btn-remove { background-color: #95a5a6; font-size: 0.8rem; padding: 0.2rem 0.5rem; width: auto; }
+        #hspPlot3D { width: 100%; height: 500px; }
+        #analysis-report { margin-top: 1.5rem; padding: 1.5rem; background-color: #fdfaf6; border: 1px solid #f39c12; border-radius: 8px; display: none; }
+        #analysis-report ul, #analysis-report ol { padding-left: 20px; }
+        .solute-params-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .session-buttons { display:grid; grid-template-columns: 1fr 1fr; gap:1rem; }
+
+        @media print {
+            body { padding: 1in; margin: 0; font-size: 12pt; background-color: #fff !important; }
+            .no-print { display: none !important; }
+            .container { box-shadow: none; border: none; width: 100%; max-width: 100%; padding: 0; }
+            .main-layout { grid-template-columns: 1fr !important; }
+            h1, h2 { font-size: 18pt; text-align: center; border: none; }
+            #hspPlot3D { page-break-before: always; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="no-print">
+        <h1>Experimental HSP Sphere Analyzer</h1>
+        <div class="intro-box">
+            <h4>The Science Behind It</h4>
+            <p>The principle "like dissolves like" is quantified by Hansen Solubility Parameters (HSP). The total cohesive energy of a substance (what holds it together) is divided into three components, which form a 3D coordinate system called **Hansen Space**:</p>
+            <ul>
+                <li><strong>δD (Dispersion):</strong> Weak, universal van der Waals forces present in all molecules, arising from temporary fluctuations in electron clouds. Think of this as a molecule's general "size" or "bulk" attraction.</li>
+                <li><strong>δP (Polar):</strong> Stronger electrostatic forces between molecules that have a permanent positive and negative end (dipoles). Think of this as the attraction between small magnets.</li>
+                <li><strong>δH (Hydrogen Bonding):</strong> A very strong, specific type of polar interaction where a hydrogen atom acts as a bridge between two highly electronegative atoms (like Oxygen or Nitrogen). Think of it as tiny, powerful "Velcro" patches on molecules.</li>
+            </ul>
+            <p>A **solute** (what you want to dissolve) is not a single point in this space, but a **Sphere** of compatibility. The sphere's center is the solute's ideal HSP point, and its **Interaction Radius (R₀)** represents its "tolerance" for solvents that aren't a perfect match. A **solvent** (a point) will dissolve the solute if its HSP point falls **inside** this sphere.</p>
+            <p>The **Hansen Distance (Ra)** measures the "dissimilarity" between a solvent and the solute's center. The formula `Ra² = 4(ΔδD)² + (ΔδP)² + (ΔδH)²` gives extra weight to the dispersion term. This means the Hansen Space is "distorted," and the sphere is visually represented as an **ellipsoid** in our 3D plot, which is the scientifically accurate shape.</p>
+            <hr>
+            <h4>How to Use This Tool</h4>
+            <ol>
+                <li><strong>Enter Experimental Data:</strong> In the left column, set the experiment temperature and your definition of a "good" solvent (the solubility threshold). Then, add each solvent you tested and its measured solubility in mg/mL.</li>
+                <li><strong>Get an Initial Guess:</strong> Click "Calculate Initial Center" to get a smart starting point for the sphere's center (δD, δP, δH) based on your "good" solvents.</li>
+                <li><strong>Auto-Optimize the Radius:</strong> Click "Auto-Optimize Radius" to find the best-fitting sphere size (R₀) for that center.</li>
+                <li><strong>Fine-Tune to Perfection:</strong> Manually adjust all four parameters (δD, δP, δH, and R₀) to maximize the **Fit Score**. The final values are your solute's experimentally-determined HSP.</li>
+                <li><strong>Get Advice:</strong> Click "Analyze Sphere & Get Advice" to receive feedback on your sphere and suggestions for which solvents to test next to improve your model's accuracy.</li>
+            </ol>
+        </div>
+    </div>
+    
+    <div id="print-title" style="display:none;">
+         <h1>Hansen Solubility Sphere Analysis Report</h1>
+    </div>
+
+    <div class="main-layout">
+        <div id="controls-column" class="no-print">
+            <h2>1. Input Data & Find the Sphere</h2>
+            <div class="form-group"><label>Experiment Temperature (°C):</label><input type="number" id="temp-input" value="25" oninput="updateAll()"></div>
+            <div class="form-group"><label>"Good Solvent" Threshold (mg/mL):</label><input type="number" id="solubility-threshold" value="10" oninput="updateAll()"></div>
+            <hr>
+            <div class="data-point-adder">
+                <select id="solvent-select-exp" style="flex:3;"></select>
+                <input type="number" id="solubility-input" placeholder="mg/mL" style="flex:2;">
+                <button class="btn btn-primary" onclick="addDatapoint()" style="flex:1;">Add</button>
+            </div>
+            <ul id="data-points-list"></ul>
+            <hr>
+            <h3>Solute Sphere Parameters (Your Goal)</h3>
+            <div class="solute-params-grid">
+                <div class="form-group"><label>δD</label><input type="number" id="solute-dD" oninput="updateAll()"></div>
+                <div class="form-group"><label>δP</label><input type="number" id="solute-dP" oninput="updateAll()"></div>
+                <div class="form-group"><label>δH</label><input type="number" id="solute-dH" oninput="updateAll()"></div>
+                <div class="form-group"><label>R₀ (Radius)</label><input type="number" id="solute-R0" oninput="updateAll()"></div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:1rem;">
+                 <button class="btn btn-secondary" onclick="calculateInitialGuess()">Calculate Initial Center</button>
+                 <button class="btn btn-secondary" onclick="optimizeRadius()">Auto-Optimize Radius</button>
+            </div>
+             <button class="btn btn-accent" style="margin-top:1rem;" onclick="analyzeSphere()">Analyze Sphere & Get Advice</button>
+             <div id="analysis-report"></div>
+        </div>
+        
+        <div>
+             <h2 id="viz-title">2. Visualization & Results</h2>
+             <div id="hspPlot3D"></div>
+             <div class="score-box"><h3>Fit Score</h3><p id="fit-score">N/A</p></div>
+        </div>
+    </div>
+    
+     <div class="full-width-section no-print" style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid var(--primary-color);">
+        <h3 style="text-align:center; margin-top:0;">Session Management</h3>
+        <div class="session-buttons">
+            <button class="btn btn-primary" onclick="saveSession()">Save Session</button>
+            <button class="btn btn-primary" onclick="$('load-session-input').click()">Load Session</button>
+            <input type="file" id="load-session-input" style="display: none;" onchange="loadSession(event)" accept=".json">
+        </div>
+    </div>
+</div>
+
+<script>
+    'use strict';
+    
+    // --- DATABASE & GLOBALS ---
+    const SOLVENT_DB = { "water":{name:"Water",hansen:{d:15.5,p:16.0,h:42.3}},"methanol":{name:"Methanol",hansen:{d:14.7,p:12.3,h:22.3}},"ethanol":{name:"Ethanol",hansen:{d:15.8,p:8.8,h:19.4}},"isopropanol":{name:"Isopropanol (IPA)",hansen:{d:15.8,p:6.1,h:16.4}},"ethylene_glycol":{name:"Ethylene Glycol",hansen:{d:17.0,p:11.0,h:26.0}},"propylene_glycol":{name:"Propylene Glycol",hansen:{d:16.8,p:9.4,h:23.3}},"glycerol":{name:"Glycerol",hansen:{d:17.4,p:12.1,h:29.3}},"acetone":{name:"Acetone",hansen:{d:15.5,p:10.4,h:7.0}},"cyclohexanone":{name:"Cyclohexanone",hansen:{d:17.8,p:6.3,h:5.1}},"ethyl_acetate":{name:"Ethyl Acetate",hansen:{d:15.8,p:5.3,h:7.2}},"isopropyl_acetate":{name:"Isopropyl Acetate",hansen:{d:15.1,p:4.3,h:6.1}},"butyl_acetate":{name:"n-Butyl Acetate",hansen:{d:15.8,p:3.7,h:6.3}},"hexane":{name:"n-Hexane",hansen:{d:14.9,p:0.0,h:0.0}},"heptane":{name:"n-Heptane",hansen:{d:15.3,p:0.0,h:0.0}},"cyclohexane":{name:"Cyclohexane",hansen:{d:16.8,p:0.0,h:0.2}},"toluene":{name:"Toluene",hansen:{d:18.0,p:1.4,h:2.0}},"xylene":{name:"Xylene (mixed)",hansen:{d:17.6,p:1.0,h:3.1}},"anisole":{name:"Anisole",hansen:{d:17.8,p:4.3,h:6.8}},"dcm":{name:"Dichloromethane (DCM)",hansen:{d:17.0,p:7.3,h:7.1}},"chlorobenzene":{name:"Chlorobenzene",hansen:{d:19.0,p:4.3,h:2.0}},"thf":{name:"Tetrahydrofuran (THF)",hansen:{d:16.8,p:5.7,h:8.0}},"dioxane":{name:"1,4-Dioxane",hansen:{d:17.5,p:1.8,h:9.0}},"acetic_acid":{name:"Acetic Acid",hansen:{d:14.5,p:8.0,h:13.5}},"acetonitrile":{name:"Acetonitrile (ACN)",hansen:{d:15.3,p:18.0,h:6.1}},"dmf":{name:"Dimethylformamide (DMF)",hansen:{d:17.4,p:13.7,h:11.3}},"dmac":{name:"Dimethylacetamide (DMAC)",hansen:{d:16.8,p:11.5,h:10.2}},"dmso":{name:"Dimethyl Sulfoxide (DMSO)",hansen:{d:18.4,p:16.4,h:10.2}},"nmp":{name:"N-Methyl-2-pyrrolidone (NMP)",hansen:{d:18.0,p:12.3,h:7.2}} };
+    let experimentalData = [];
+    const ALPHA = 0.0012; 
+    const $ = id => document.getElementById(id);
+
+    // --- INITIALIZATION ---
+    document.addEventListener('DOMContentLoaded', () => {
+        populateSelect('solvent-select-exp', SOLVENT_DB);
+        updateAll();
+    });
+    
+    // --- HELPER & UI FUNCTIONS ---
+    const correctHSP = (hsp, temp) => ({ d:hsp.d*(1-ALPHA*(temp-25)), p:hsp.p*(1-ALPHA*(temp-25)), h:hsp.h*(1-ALPHA*(temp-25)) });
+    const calculateRa = (hsp1, hsp2) => (hsp1 && hsp2 && !Object.values(hsp1).some(isNaN)) ? Math.sqrt(4*(hsp1.d-hsp2.d)**2 + (hsp1.p-hsp2.p)**2 + (hsp1.h-hsp2.h)**2) : NaN;
+    function populateSelect(selectId, db) { /* ... same as before ... */ }
+    function addDatapoint() { /* ... same as before ... */ }
+    function removeDatapoint(btn) { /* ... same as before ... */ }
+    function calculateInitialGuess() { /* ... same as before ... */ }
+    function optimizeRadius() { /* ... same as before ... */ }
+    function analyzeSphere() { /* ... same as before ... */ }
+    
+    // --- SESSION & REPORTING ---
+    function saveSession() {
+        const sessionData = {
+            soluteParams: { d: $('solute-dD').value, p: $('solute-dP').value, h: $('solute-dH').value, R0: $('solute-R0').value },
+            conditions: { temp: $('temp-input').value, threshold: $('solubility-threshold').value },
+            experimentalData: experimentalData
+        };
+        const blob = new Blob([JSON.stringify(sessionData, null, 2)], {type: 'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `hsp_session_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
+    function loadSession(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                $('solute-dD').value = data.soluteParams.d || ''; $('solute-dP').value = data.soluteParams.p || '';
+                $('solute-dH').value = data.soluteParams.h || ''; $('solute-R0').value = data.soluteParams.R0 || '';
+                $('temp-input').value = data.conditions.temp || 25;
+                $('solubility-threshold').value = data.conditions.threshold || 10;
+                experimentalData = data.experimentalData || [];
+                const listUI = $('data-points-list');
+                listUI.innerHTML = '';
+                experimentalData.forEach(p => { listUI.innerHTML += `<li><span>${SOLVENT_DB[p.id].name}: <strong>${p.solubility} mg/mL</strong></span><button class="btn-remove" onclick="removeDatapoint(this)">X</button></li>`; });
+                event.target.value = '';
+                updateAll();
+                alert('Session loaded successfully!');
+            } catch (error) { alert('Error: The selected file is not a valid session file.'); }
+        };
+        reader.readAsText(file);
+    }
+
+    // --- CENTRAL UPDATE & DRAWING ---
+    function updateAll() { /* ... same as before ... */ }
+    function drawChart3D(soluteHSP, temp, threshold) { /* ... same as before ... */ }
+
+    // --- Re-pasting full functions for completeness ---
+    function populateSelect(selectId, db) { const select = $(selectId); select.innerHTML = `<option value="">— Select Solvent —</option>` + Object.keys(db).sort((a,b)=>(db[a].name).localeCompare(db[b].name)).map(key => `<option value="${key}">${db[key].name}</option>`).join(''); }
+    function addDatapoint() { const id = $('solvent-select-exp').value, solubility = parseFloat($('solubility-input').value); if(!id || isNaN(solubility)) { alert("Invalid data."); return; } experimentalData.push({id, solubility}); $('data-points-list').innerHTML += `<li><span>${SOLVENT_DB[id].name}: <strong>${solubility} mg/mL</strong></span><button class="btn-remove" onclick="removeDatapoint(this)">X</button></li>`; updateAll(); }
+    function removeDatapoint(btn) { const index = Array.from(btn.parentElement.parentElement.children).indexOf(btn.parentElement); experimentalData.splice(index, 1); btn.parentElement.remove(); updateAll(); }
+    function calculateInitialGuess() { if (experimentalData.length === 0) return alert("Please add experimental data first."); const threshold = parseFloat($('solubility-threshold').value); const goodSolvents = experimentalData.filter(p => p.solubility > threshold); if (goodSolvents.length === 0) return alert("No 'good' solvents found based on the current threshold."); const temp = parseFloat($('temp-input').value); let d_sum=0, p_sum=0, h_sum=0; goodSolvents.forEach(p => { const hsp_T = correctHSP(SOLVENT_DB[p.id].hansen, temp); d_sum += hsp_T.d; p_sum += hsp_T.p; h_sum += hsp_T.h; }); $('solute-dD').value = (d_sum / goodSolvents.length).toFixed(2); $('solute-dP').value = (p_sum / goodSolvents.length).toFixed(2); $('solute-dH').value = (h_sum / goodSolvents.length).toFixed(2); updateAll(); }
+    function optimizeRadius() { if (experimentalData.length === 0) return alert("Please add experimental data first."); const soluteHSP = { d: parseFloat($('solute-dD').value), p: parseFloat($('solute-dP').value), h: parseFloat($('solute-dH').value) }; if (Object.values(soluteHSP).some(isNaN)) return alert("Please enter the solute's δD, δP, and δH values first."); const temp = parseFloat($('temp-input').value), threshold = parseFloat($('solubility-threshold').value); let bestR0 = 0, maxScore = -1; for (let r = 0.1; r <= 25.0; r += 0.1) { let correctFits = 0; experimentalData.forEach(p => { const isGood = p.solubility > threshold, hsp_T = correctHSP(SOLVENT_DB[p.id].hansen, temp), Ra = calculateRa(soluteHSP, hsp_T); if ((isGood && Ra < r) || (!isGood && Ra >= r)) correctFits++; }); const currentScore = (correctFits / experimentalData.length) * 100; if (currentScore >= maxScore) { maxScore = currentScore; bestR0 = r; } } $('solute-R0').value = bestR0.toFixed(2); updateAll(); alert(`Optimization complete.\nOptimal Radius found: ${bestR0.toFixed(2)}\nwith a Fit Score of: ${maxScore.toFixed(0)}%`); }
+    function analyzeSphere() { const soluteHSP = { d: parseFloat($('solute-dD').value), p: parseFloat($('solute-dP').value), h: parseFloat($('solute-dH').value), R0: parseFloat($('solute-R0').value) }; if (experimentalData.length < 5 || Object.values(soluteHSP).some(isNaN) || soluteHSP.R0 <= 0) return alert("For a meaningful analysis, please enter at least 5 data points and define a complete sphere (δD, δP, δH, R₀ > 0)."); const temp = parseFloat($('temp-input').value), reportContainer = $('analysis-report'); let reportHTML = "<h3>Sphere Analysis & Recommendations</h3>", insights = [], suggestions = []; if (soluteHSP.R0 > 12) insights.push("<li>The radius R₀ is very large (>12), suggesting the sphere is poorly defined.</li>"); const testedSolventIds = experimentalData.map(p => p.id); const untestedSolvents = Object.keys(SOLVENT_DB).filter(id => !testedSolventIds.includes(id)); if (untestedSolvents.length === 0) insights.push("<li>You have tested all solvents in the database!</li>"); else { const suggestionCandidates = untestedSolvents.map(id => { const solvent = SOLVENT_DB[id], hsp_T = correctHSP(solvent.hansen, temp), Ra = calculateRa(soluteHSP, hsp_T), RED = Ra / soluteHSP.R0; let reason = RED < 0.8 ? "Sphere Filling" : (RED > 1.2 ? "External Confirmation" : "Boundary Test"); return { name: solvent.name, Ra, RED, reason, priority: Math.abs(RED - 1) }; }).sort((a,b) => a.priority - b.priority); suggestions = suggestionCandidates.slice(0, 5); } reportHTML += "<h4>Quality Assessment</h4>"; reportHTML += (insights.length > 0) ? `<ul>${insights.join('')}</ul>` : "<p>Your sphere appears reasonably defined.</p>"; if (suggestions.length > 0) { reportHTML += "<h4>Suggestions for Next Experiment</h4><ol>"; suggestions.forEach(sug => { reportHTML += `<li><strong>${sug.name}</strong><br><small><em>Reason:</em> ${sug.reason}. (Ra: ${sug.Ra.toFixed(1)}, RED: ${sug.RED.toFixed(1)})</small></li>`; }); reportHTML += "</ol>"; } reportContainer.innerHTML = reportHTML; reportContainer.style.display = 'block'; }
+    function updateAll() { const soluteHSP = { d: parseFloat($('solute-dD').value), p: parseFloat($('solute-dP').value), h: parseFloat($('solute-dH').value), R0: parseFloat($('solute-R0').value) }; const temp = parseFloat($('temp-input').value), threshold = parseFloat($('solubility-threshold').value); if(isNaN(temp) || isNaN(threshold)) { if (window.Plotly) Plotly.purge('hspPlot3D'); return; } if (experimentalData.length > 0 && !Object.values(soluteHSP).some(isNaN) && soluteHSP.R0 > 0) { let correctFits = 0; experimentalData.forEach(p => { const isGood = p.solubility > threshold, hsp_T = correctHSP(SOLVENT_DB[p.id].hansen, temp), Ra = calculateRa(soluteHSP, hsp_T); if ((isGood && Ra < soluteHSP.R0) || (!isGood && Ra >= soluteHSP.R0)) correctFits++; }); $('fit-score').textContent = `${((correctFits/experimentalData.length)*100).toFixed(0)}%`; } else { $('fit-score').textContent = 'N/A'; } drawChart3D(soluteHSP, temp, threshold); }
+    function drawChart3D(soluteHSP, temp, threshold) { const goodSolvents = { x:[], y:[], z:[], text:[], type: 'scatter3d', mode: 'markers', name: 'Good Solvents', marker: { color: 'green', size: 8 }}; const badSolvents = { x:[], y:[], z:[], text:[], type: 'scatter3d', mode: 'markers', name: 'Bad Solvents', marker: { color: 'red', size: 5, symbol: 'x' }}; experimentalData.forEach(p => { const hsp_T = correctHSP(SOLVENT_DB[p.id].hansen, temp); const target = p.solubility > threshold ? goodSolvents : badSolvents; target.x.push(hsp_T.d); target.y.push(hsp_T.p); target.z.push(hsp_T.h); target.text.push(`${SOLVENT_DB[p.id].name}: ${p.solubility} mg/mL`); }); const dataTraces = [goodSolvents, badSolvents]; if(!Object.values(soluteHSP).some(isNaN) && soluteHSP.R0 > 0) { const n=40; let x_e=[], y_e=[], z_e=[]; for(let i=0; i<n; i++) for(let j=0; j<n; j++) { const theta=Math.PI*i/(n-1), phi=2*Math.PI*j/(n-1); x_e.push(soluteHSP.d + (soluteHSP.R0/2)*Math.sin(theta)*Math.cos(phi)); y_e.push(soluteHSP.p + soluteHSP.R0*Math.sin(theta)*Math.sin(phi)); z_e.push(soluteHSP.h + soluteHSP.R0*Math.cos(theta)); } dataTraces.push({ type: 'mesh3d', x: x_e, y: y_e, z: z_e, opacity: 0.2, color: '#3498db', name: 'Solute Sphere' }); } const layout = { title: `Hansen Space at ${temp}°C`, scene: { xaxis:{title:'δD'}, yaxis:{title:'δP'}, zaxis:{title:'δH'}, aspectmode: 'data' }, margin: { l:0, r:0, b:0, t:40 } }; Plotly.newPlot('hspPlot3D', dataTraces, layout, {responsive: true}); }
+
+</script>
+</body>
+</html>

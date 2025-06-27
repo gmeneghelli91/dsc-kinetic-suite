@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-S7BR3ME7C7"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-S7BR3ME7C7');
+</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final Corrected: Solubility vs. Temperature Simulator</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root {
+            --primary-color: #4a148c;
+            --secondary-color: #7b1fa2;
+            --accent-color: #e1bee7;
+            --text-color: #311b92;
+            --result-color: #f3e5f5;
+            --error-color: #c0392b;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 2rem; background-color: #f3f3f3; color: var(--text-color); }
+        .container { width: 100%; max-width: 900px; margin: auto; background-color: white; padding: 2.5rem; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+        h1, h2, h4 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 0.5rem; margin-top: 0; }
+        h2 { margin-top: 2rem; font-size: 1.5rem; }
+        h4 { font-size: 1.1em; color: var(--primary-color); border-bottom: 1px solid #ddd; padding-bottom: 0.5rem; margin-bottom: 1rem;}
+        fieldset { border: 1px solid #ccc; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; }
+        legend { font-weight:bold; padding: 0 0.5em; color: var(--primary-color); }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { font-weight: bold; display: block; margin-bottom: 0.5rem; }
+        .form-group input, .form-group select { width: 100%; padding: 0.6rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1rem; }
+        .btn { border: none; border-radius: 4px; padding: 1rem; font-size: 1.2rem; font-weight: bold; color: white; background-color: var(--secondary-color); cursor: pointer; margin-top: 1.5rem; width: 100%; }
+        .btn-session { background-color: #6c757d; font-size: 1rem; padding: 0.8rem; margin-top: 0.5rem; }
+        .mixture-adder { display:flex; gap:10px; align-items:center; }
+        #mixture-list { list-style:none; padding:0; margin-top:1rem; }
+        #mixture-list li { padding:0.5rem; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; }
+        .btn-remove { background-color:#95a5a6; color:white; padding: 0.3rem 0.6rem; border:none; border-radius:50%; cursor:pointer; line-height:1; }
+        #error-box { display: none; margin-top: 1rem; padding: 1rem; background-color: #fbeae5; border: 1px solid var(--error-color); color: var(--error-color); border-radius: 4px; }
+        .intro-box { background-color: #f3e5f5; border-left: 5px solid var(--primary-color); padding: 1rem 1.5rem; margin-bottom: 2.5rem; line-height: 1.6; }
+        .intro-box hr { border: 0; border-top: 1px solid #d1c4e9; margin: 1.5rem 0; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Solubility vs. Temperature Curve Simulator</h1>
+    
+    <div class="intro-box">
+        <h4>The Science Behind It</h4>
+        <p>This tool estimates the solubility of a solid solute by modeling the two key energy components involved in dissolution:</p>
+        <ol>
+            <li><strong>Ideal Solubility (Crystal Energy):</strong> First, the tool calculates the theoretical maximum solubility a solute can have at a given temperature. This "ideal solubility" is limited by the strength of the solute's crystal lattice, which is determined by its **Melting Point (Tₘ)** and **Enthalpy of Fusion (ΔH_fus)**. A high melting point means a strong crystal, which requires more energy to break, thus lowering its ideal solubility.</li>
+            <li><strong>Real Interaction (Mixing Energy):</strong> Ideal solubility is only achieved in a "perfect" solvent. In reality, the interaction between the solute and the solvent modifies this value. This tool uses **Hansen Solubility Parameters (HSP)** to quantify this interaction. The **Hansen Distance (Ra)** between the solute and the solvent mixture measures their chemical dissimilarity. A large `Ra` signifies a poor interaction, which penalizes the ideal solubility, reducing the final predicted value. The **k-factor** is a crucial empirical parameter that "tunes" this penalty for specific chemical systems (like those with hydrogen bonds).</li>
+        </ol>
+        <hr>
+        <h4>How to Use This Tool</h4>
+        <ul>
+            <li><strong>Define Solute:</strong> Enter all 7 physical and HSP properties for your solute.</li>
+            <li><strong>Build Mixture:</strong> Create the fixed solvent blend you want to analyze by adding solvents and their volume percentages (must sum to 100%).</li>
+            <li><strong>Set Conditions:</strong> Define the temperature range you want to simulate and provide the appropriate `k`-factor for your system.</li>
+            <li><strong>Generate Curve:</strong> Click the "Generate Solubility Curve" button to see the results.</li>
+        </ul>
+    </div>
+
+    <div class="module">
+        <h2>1. Define Your System</h2>
+        <div id="error-box"></div>
+        <fieldset>
+            <legend>Solute Properties</legend>
+            <div class="form-grid">
+                <div class="form-group"><label>Tₘ (°C)</label><input type="number" id="solute-tm"></div>
+                <div class="form-group"><label>MW (g/mol)</label><input type="number" id="solute-mw"></div>
+                <div class="form-group"><label>ΔH_fus (J/mol)</label><input type="number" id="solute-hf"></div>
+                <div class="form-group"><label>Vₘ (cm³/mol)</label><input type="number" id="solute-vm"></div>
+            </div>
+            <div class="form-group"><label>Solute HSP (δD, δP, δH)</label><div style="display:flex; gap: 5px;"><input type="number" id="solute-dD" placeholder="δD"><input type="number" id="solute-dP" placeholder="δP"><input type="number" id="solute-dH" placeholder="δH"></div></div>
+        </fieldset>
+        <fieldset>
+            <legend>Fixed Solvent Mixture & Conditions</legend>
+            <div class="mixture-adder">
+                <select id="solvent-select" style="flex:3;"></select>
+                <input type="number" id="mixture-percent" placeholder="% vol" style="flex:2;">
+                <button onclick="addMixtureComponent()" style="flex:1; padding:0.6rem; background-color:#5DADE2; color:white; border:none; border-radius:4px; cursor:pointer;">Add</button>
+            </div>
+            <ul id="mixture-list"></ul>
+            <hr>
+            <div class="form-grid">
+                <div class="form-group"><label>Start Temp (°C)</label><input type="number" id="temp-start" value="0"></div>
+                <div class="form-group"><label>End Temp (°C)</label><input type="number" id="temp-end" value="80"></div>
+                <div class="form-group"><label>Temp Step (°C)</label><input type="number" id="temp-step" value="5"></div>
+                <div class="form-group"><label>k-Factor</label><input type="number" id="k-factor" value="1.0" step="0.01"></div>
+            </div>
+        </fieldset>
+    </div>
+    
+    <div class="module">
+        <h2>2. Generate & View Curve</h2>
+        <button class="btn" onclick="generateSolubilityCurve()">Generate Solubility Curve</button>
+        <div id="results-module" style="margin-top:2rem; display:none;">
+            <canvas id="solubilityChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="module">
+        <h2>3. Session Management</h2>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
+            <button class="btn btn-session" onclick="saveSession()">Save Session</button>
+            <button class="btn btn-session" onclick="$('load-session-input').click()">Load Session</button>
+            <input type="file" id="load-session-input" style="display: none;" onchange="loadSession(event)" accept=".json">
+        </div>
+    </div>
+</div>
+
+<script>
+    'use strict';
+    // --- EXPANDED DATABASE ---
+    const SOLVENT_DB = { "water":{name:"Water",hansen:{d:15.5,p:16.0,h:42.3},mw:18.02,density:1.0},"methanol":{name:"Methanol",hansen:{d:14.7,p:12.3,h:22.3},mw:32.04,density:0.792},"ethanol":{name:"Ethanol",hansen:{d:15.8,p:8.8,h:19.4},mw:46.07,density:0.789},"isopropanol":{name:"Isopropanol (IPA)",hansen:{d:15.8,p:6.1,h:16.4},mw:60.1,density:0.786},"ethylene_glycol":{name:"Ethylene Glycol",hansen:{d:17.0,p:11.0,h:26.0},mw:62.07,density:1.11},"propylene_glycol":{name:"Propylene Glycol",hansen:{d:16.8,p:9.4,h:23.3},mw:76.09,density:1.036},"glycerol":{name:"Glycerol",hansen:{d:17.4,p:12.1,h:29.3},mw:92.09,density:1.26},"acetone":{name:"Acetone",hansen:{d:15.5,p:10.4,h:7.0},mw:58.08,density:0.791},"cyclohexanone":{name:"Cyclohexanone",hansen:{d:17.8,p:6.3,h:5.1},mw:98.14,density:0.947},"ethyl_acetate":{name:"Ethyl Acetate",hansen:{d:15.8,p:5.3,h:7.2},mw:88.11,density:0.902},"isopropyl_acetate":{name:"Isopropyl Acetate",hansen:{d:15.1,p:4.3,h:6.1},mw:102.13,density:0.877},"butyl_acetate":{name:"n-Butyl Acetate",hansen:{d:15.8,p:3.7,h:6.3},mw:116.16,density:0.882},"hexane":{name:"n-Hexane",hansen:{d:14.9,p:0.0,h:0.0},mw:86.18,density:0.655},"heptane":{name:"n-Heptane",hansen:{d:15.3,p:0.0,h:0.0},mw:100.21,density:0.684},"cyclohexane":{name:"Cyclohexane",hansen:{d:16.8,p:0.0,h:0.2},mw:84.16,density:0.779},"toluene":{name:"Toluene",hansen:{d:18.0,p:1.4,h:2.0},mw:92.14,density:0.867},"xylene":{name:"Xylene (mixed)",hansen:{d:17.6,p:1.0,h:3.1},mw:106.16,density:0.864},"anisole":{name:"Anisole",hansen:{d:17.8,p:4.3,h:6.8},mw:108.14,density:0.995},"dcm":{name:"Dichloromethane (DCM)",hansen:{d:17.0,p:7.3,h:7.1},mw:84.93,density:1.33},"chlorobenzene":{name:"Chlorobenzene",hansen:{d:19.0,p:4.3,h:2.0},mw:112.56,density:1.11},"thf":{name:"Tetrahydrofuran (THF)",hansen:{d:16.8,p:5.7,h:8.0},mw:72.11,density:0.889},"dioxane":{name:"1,4-Dioxane",hansen:{d:17.5,p:1.8,h:9.0},mw:88.11,density:1.033},"acetic_acid":{name:"Acetic Acid",hansen:{d:14.5,p:8.0,h:13.5},mw:60.05,density:1.05},"acetonitrile":{name:"Acetonitrile (ACN)",hansen:{d:15.3,p:18.0,h:6.1},mw:41.05,density:0.786},"dmf":{name:"Dimethylformamide (DMF)",hansen:{d:17.4,p:13.7,h:11.3},mw:73.09,density:0.944},"dmac":{name:"Dimethylacetamide (DMAC)",hansen:{d:16.8,p:11.5,h:10.2},mw:87.12,density:0.94},"dmso":{name:"Dimethyl Sulfoxide (DMSO)",hansen:{d:18.4,p:16.4,h:10.2},mw:78.13,density:1.100},"nmp":{name:"N-Methyl-2-pyrrolidone (NMP)",hansen:{d:18.0,p:12.3,h:7.2},mw:99.13,density:1.028} };
+
+    let myChart = null, mixture = [];
+    const R_GAS_CONSTANT = 8.314, ALPHA = 0.0012;
+    const $ = id => document.getElementById(id);
+
+    document.addEventListener('DOMContentLoaded', () => { populateSelect('solvent-select', SOLVENT_DB); });
+    
+    function populateSelect(selectId, db) { const select = $(selectId); select.innerHTML = `<option value="">— Select Solvent —</option>`+Object.keys(db).sort((a,b)=>(db[a].name).localeCompare(db[b].name)).map(key => `<option value="${key}">${db[key].name}</option>`).join(''); }
+    function addMixtureComponent() { const id = $('solvent-select').value, percent = parseFloat($('mixture-percent').value); if(!id || !percent) return; mixture.push({id, percent}); updateMixtureList(); }
+    function removeMixtureComponent(index) { mixture.splice(index, 1); updateMixtureList(); }
+    function updateMixtureList() { const listUI = $('mixture-list'); listUI.innerHTML = ''; mixture.forEach((comp, index) => { listUI.innerHTML += `<li><span>${SOLVENT_DB[comp.id].name}: <strong>${comp.percent}%</strong></span><button class="btn-remove" onclick="removeMixtureComponent(${index})">X</button></li>`; });}
+
+    // --- DEFINITIVE, ROBUST INPUT VALIDATION FUNCTION ---
+    function getInputs() {
+        let errors = [];
+        const solute = { hsp: {} };
+        const soluteFields = {
+            tm: { name: "Melting Point", el: $('solute-tm') }, mw: { name: "Molecular Weight", el: $('solute-mw') },
+            hf: { name: "Enthalpy of Fusion", el: $('solute-hf') }, vm: { name: "Molar Volume", el: $('solute-vm') },
+            dD: { name: "Solute δD", el: $('solute-dD'), hsp: true, key: 'd' },
+            dP: { name: "Solute δP", el: $('solute-dP'), hsp: true, key: 'p' },
+            dH: { name: "Solute δH", el: $('solute-dH'), hsp: true, key: 'h' }
+        };
+        for(const key in soluteFields) {
+            const field = soluteFields[key];
+            const val = parseFloat(field.el.value);
+            if (isNaN(val)) { errors.push(field.name); }
+            if (field.hsp) { solute.hsp[field.key] = val; } 
+            else { solute[key] = val; }
+        }
+        
+        const tempRange = { start: parseFloat($('temp-start').value), end: parseFloat($('temp-end').value), step: parseFloat($('temp-step').value) };
+        if (Object.values(tempRange).some(isNaN) || tempRange.step <= 0) errors.push("a valid Temperature Range");
+        if (!isNaN(solute.tm) && tempRange.end >= solute.tm) errors.push("an End Temperature below the solute's Melting Point");
+        const kFactor = parseFloat($('k-factor').value); if(isNaN(kFactor)) errors.push("k-Factor");
+        
+        const totalPercent = mixture.reduce((sum, comp) => sum + comp.percent, 0);
+        if (mixture.length === 0) { errors.push("at least one solvent in the mixture"); }
+        else if (Math.abs(totalPercent - 100) > 0.1) { errors.push("mixture percentages that sum to 100%"); }
+        
+        const errorBox = $('error-box');
+        if (errors.length > 0) {
+            errorBox.style.display = 'block';
+            errorBox.innerHTML = `<strong>Please provide valid inputs for:</strong><ul>${errors.map(e => `<li>${e}</li>`).join('')}</ul>`;
+            return null;
+        } else {
+            errorBox.style.display = 'none';
+        }
+        return { solute, mixture, tempRange, kFactor };
+    }
+    
+    function calculateThermodynamicSolubility(solute, mixtureProps, tempK, kFactor) {
+        const tmK = solute.tm + 273.15;
+        const ln_x_ideal = -(solute.hf / R_GAS_CONSTANT) * ( (tmK - tempK) / (tempK * tmK) );
+        const Ra = Math.sqrt(4*(solute.hsp.d-mixtureProps.hansen.d)**2 + (solute.hsp.p-mixtureProps.hansen.p)**2 + (solute.hsp.h-mixtureProps.hansen.h)**2);
+        const ln_gamma = kFactor * (solute.vm / (R_GAS_CONSTANT * tempK)) * (Ra**2);
+        const ln_x_real = ln_x_ideal - ln_gamma;
+        const x_real = Math.exp(ln_x_real);
+        if (x_real >= 1) return Infinity;
+        const moles_solute = x_real / (1 - x_real);
+        const mass_solute_g = moles_solute * solute.mw;
+        const volume_solvent_mL = (1 * mixtureProps.mw) / mixtureProps.density; 
+        return (mass_solute_g / volume_solvent_mL) * 1000;
+    }
+    
+    function generateSolubilityCurve() {
+        const inputs = getInputs();
+        if (!inputs) return;
+        const { solute, mixture, tempRange, kFactor } = inputs;
+        let labels = [], results = [];
+        for (let tempC = tempRange.start; tempC <= tempRange.end; tempC += tempRange.step) {
+            let mixtureHSP = {d:0,p:0,h:0}, mixtureProps = {mw:0, density:0};
+            mixture.forEach(comp => {
+                const volFrac = comp.percent / 100, solvent = SOLVENT_DB[comp.id];
+                const hsp_T = { d:solvent.hansen.d*(1-ALPHA*(tempC-25)), p:solvent.hansen.p*(1-ALPHA*(tempC-25)), h:solvent.hansen.h*(1-ALPHA*(tempC-25)) };
+                mixtureHSP.d += volFrac * hsp_T.d; mixtureHSP.p += volFrac * hsp_T.p; mixtureHSP.h += volFrac * hsp_T.h;
+                mixtureProps.mw += volFrac * solvent.mw; mixtureProps.density += volFrac * solvent.density;
+            });
+            mixtureProps.hansen = mixtureHSP;
+            const solubility = calculateThermodynamicSolubility(solute, mixtureProps, tempC + 273.15, kFactor);
+            labels.push(tempC);
+            results.push(solubility);
+        }
+        $('results-module').style.display = 'block';
+        drawChart(labels, results);
+    }
+
+    function drawChart(labels, data) {
+        const ctx = $('solubilityChart').getContext('2d');
+        if (myChart) myChart.destroy();
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Estimated Solubility (mg/mL)',
+                    data: data,
+                    borderColor: 'rgba(142, 68, 173, 1)',
+                    backgroundColor: 'rgba(142, 68, 173, 0.2)',
+                    fill: true,
+                    tension: 0.1
+                }]
+            },
+            options: { scales: { y: { title: { display: true, text: 'Solubility (mg/mL)' } }, x: { title: { display: true, text: `Temperature (°C)` } } } }
+        });
+    }
+    
+    function saveSession() {
+        const sessionData = {
+            solute: { tm: $('solute-tm').value, mw: $('solute-mw').value, hf: $('solute-hf').value, vm: $('solute-vm').value, dD: $('solute-dD').value, dP: $('solute-dP').value, dH: $('solute-dH').value },
+            conditions: { start: $('temp-start').value, end: $('temp-end').value, step: $('temp-step').value, k: $('k-factor').value },
+            mixture: mixture
+        };
+        const blob = new Blob([JSON.stringify(sessionData, null, 2)], {type: 'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `sol_vs_temp_session.json`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
+    function loadSession(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (!data.solute || !data.conditions || !data.mixture) throw new Error('Invalid file format');
+                for(const key in data.solute) { if($(`solute-${key}`)) $(`solute-${key}`).value = data.solute[key]; }
+                $('temp-start').value = data.conditions.start || 0;
+                $('temp-end').value = data.conditions.end || 80;
+                $('temp-step').value = data.conditions.step || 5;
+                $('k-factor').value = data.conditions.k || 1.0;
+                mixture = data.mixture || [];
+                updateMixtureList();
+                event.target.value = '';
+                alert('Session loaded successfully!');
+            } catch (error) { alert('Error: The selected file is not a valid session file.'); }
+        };
+        reader.readAsText(file);
+    }
+</script>
+</body>
+</html>

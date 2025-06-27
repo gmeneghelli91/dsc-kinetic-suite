@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-S7BR3ME7C7"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-S7BR3ME7C7');
+</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HSP Estimator from SMILES (v2.1 with Theory)</title>
+    
+    <script src="https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js"></script>
+    
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #2980b9;
+            --accent-color: #16a085;
+            --text-color: #34495e;
+            --background-color: #ecf0f1;
+            --container-color: #ffffff;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 2rem; background-color: var(--background-color); color: var(--text-color); }
+        .container { width: 100%; max-width: 800px; margin: auto; background-color: var(--container-color); padding: 2.5rem; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+        h1, h2, h3, h4 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 0.5rem; margin-top: 0; }
+        h2 { margin-top: 2rem; font-size: 1.5rem; }
+        h3, h4 { border-bottom: none; color: var(--secondary-color); margin: 1.5rem 0 1rem 0;}
+        h4 { font-size: 1.1em; color: var(--primary-color); border-bottom: 1px solid #ddd; padding-bottom: 0.5rem;}
+        .module { padding: 1.5rem; border: 1px solid #bdc3c7; border-radius: 8px; margin-bottom: 2rem; }
+        .intro-box { background-color: #eef3f8; border-left: 5px solid var(--secondary-color); padding: 1rem 1.5rem; margin-bottom: 2.5rem; line-height: 1.6; }
+        .intro-box p, .intro-box li { font-size: 0.95em; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { font-weight: bold; display: block; margin-bottom: 0.5rem; }
+        .form-group input { width: 100%; padding: 0.6rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1rem; }
+        .result-table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+        .result-table th, .result-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        .result-table th { background-color: #f2f2f2; font-weight: bold; }
+        .result-table tr:nth-child(even) { background-color: #fafafa; }
+        .result-table td:nth-child(1), .result-table td:nth-child(3) { text-align: center; }
+        .btn { border: none; border-radius: 4px; padding: 0.8rem 1.5rem; cursor: pointer; color: white; transition: background-color 0.2s; font-weight: bold; width: 100%; }
+        .btn-primary { background-color: var(--primary-color); }
+        .btn-accent { background-color: var(--accent-color); }
+        #status { text-align: center; padding: 1rem; font-weight: bold; color: var(--primary-color); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="status">Initializing Cheminformatics Library... Please wait.</div>
+
+    <div id="main-content" style="display:none;">
+        <h1>HSP Parameter & Affinity Estimator</h1>
+        
+        <div class="intro-box">
+            <h3>Theoretical Introduction & Instructions</h3>
+            
+            <h4>The Core Principle: The Group Contribution Method</h4>
+            <p>The basic idea is that every molecule, no matter how complex, is simply an assembly of simpler chemical "building blocks" (the functional groups). Each of these blocks contributes in a predictable and additive way to the final properties of the molecule, much like LEGO® bricks contribute to a final structure.</p>
+            <p>This tool uses this principle to estimate a molecule's properties based solely on its chemical structure, without needing experimental data.</p>
+            
+            <h4>The Workflow: From SMILES to Affinity</h4>
+            <ol>
+                <li><strong>The Blueprint (SMILES String):</strong> You provide a SMILES string (e.g., <code>CCO</code> for Ethanol), which is a text-based blueprint of the molecule's structure.</li>
+                <li><strong>The Parser (RDKit.js):</strong> The tool uses a chemoinformatics library to read this blueprint and create a digital map of the molecule, identifying all its functional groups.</li>
+                <li><strong>The Calculation:</strong> The tool has a database of "contributions" for each functional group. It sums these contributions to estimate the molecule's Hansen Solubility Parameters (<strong>δD, δP, δH</strong>) and its Molar Volume (<strong>Vₘ</strong>).</li>
+                <li><strong>The Prediction (Affinity Ranking):</strong> This method can accurately predict the *center* of the Hansen Sphere but not its *size* (the Interaction Radius, R₀). Therefore, instead of a simple "soluble/insoluble" answer, this tool provides something more powerful: an **Affinity Ranking**. It calculates the **Hansen Distance (Ra)** between your solute and every solvent in the database.
+                <br><strong>Rule of thumb: A lower `Ra` indicates a better chemical match and a higher probability of solubility.</strong> This allows you to rank potential solvents and prioritize your real-world experiments.</li>
+            </ol>
+        </div>
+
+        <div class="module">
+            <h2>Module 1: Estimate Solute Properties from SMILES</h2>
+            <div class="form-group">
+                <label for="smiles-input">SMILES String</label>
+                <input type="text" id="smiles-input" placeholder="e.g., CCO (Ethanol), CC(=O)C (Acetone)">
+            </div>
+            <button class="btn btn-primary" onclick="estimateFromSmiles()">Estimate Parameters</button>
+            <table id="estimation-results" class="result-table" style="display:none; margin-top: 1rem;"></table>
+        </div>
+
+        <div class="module" id="ranking-module" style="display:none;">
+            <h2>Module 2: Automated Solvent Affinity Ranking</h2>
+            <p>Click the button below to automatically calculate the affinity for all solvents in the database and display the Top 15 matches.</p>
+            <button class="btn btn-accent" onclick="rankAffinities()">Rank All Solvents (Show Top 15)</button>
+            <div id="ranking-results-container" style="display:none; margin-top: 1rem;">
+                <h3>Top 15 Solvents by Affinity</h3>
+                <table id="ranking-results" class="result-table"></table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    'use strict';
+    
+    // --- DATABASES & GLOBALS ---
+    const GROUP_DB = { "-CH3":{name:"-CH₃ (Methyl)",Fd:216,Fp:0,Eh:0,V:33.5,smarts:"[CH3X4]"},"-CH2-":{name:"-CH₂- (Methylene)",Fd:270,Fp:0,Eh:0,V:16.1,smarts:"[CH2X4]"},">CH-":{name:">CH- (Methine)",Fd:298,Fp:0,Eh:0,V:-1.0,smarts:"[CH1X4]"},"CH_ar":{name:"CH (Aromatic)",Fd:400,Fp:0,Eh:0,V:13.15,smarts:"[cH1]"},"C_ar_noH":{name:"C (Aromatic)",Fd:382,Fp:0,Eh:0,V:10.0,smarts:"[c]([a])([a])[a]"},"-OH_alc":{name:"-OH (Alcohol)",Fd:210,Fp:500,Eh:10000,V:10.0,smarts:"[#6][OX2H1]"},">C=O_ket":{name:">C=O (Ketone)",Fd:538,Fp:750,Eh:2500,V:10.8,smarts:"[#6][CX3](=O)[#6]"},"-COO-":{name:"-COO- (Ester)",Fd:670,Fp:600,Eh:2000,V:18.0,smarts:"[#6]C(=O)O[#6]"},"-O-ether":{name:"-O- (Ether)",Fd:250,Fp:400,Eh:2000,V:3.8,smarts:"[#6][OX2H0][#6]"},"COOH":{name:"-COOH",Fd:792,Fp:510,Eh:8000,V:24.6,smarts:"C(=O)[O;H1]"} };
+    const SOLVENT_DB = { "water": { name: "Water", hansen: { d: 15.5, p: 16.0, h: 42.3 } }, "methanol": { name: "Methanol", hansen: { d: 14.7, p: 12.3, h: 22.3 } }, "ethanol": { name: "Ethanol", hansen: { d: 15.8, p: 8.8, h: 19.4 } }, "isopropanol": { name: "Isopropanol (IPA)", hansen: { d: 15.8, p: 6.1, h: 16.4 } }, "ethylene_glycol": { name: "Ethylene Glycol", hansen: { d: 17.0, p: 11.0, h: 26.0 } }, "propylene_glycol": { name: "Propylene Glycol", hansen: { d: 16.8, p: 9.4, h: 23.3 } }, "glycerol": { name: "Glycerol", hansen: { d: 17.4, p: 12.1, h: 29.3 } }, "acetone": { name: "Acetone", hansen: { d: 15.5, p: 10.4, h: 7.0 } }, "cyclohexanone": { name: "Cyclohexanone", hansen: { d: 17.8, p: 6.3, h: 5.1 } }, "ethyl_acetate": { name: "Ethyl Acetate", hansen: { d: 15.8, p: 5.3, h: 7.2 } }, "isopropyl_acetate": { name: "Isopropyl Acetate", hansen: { d: 15.1, p: 4.3, h: 6.1 } }, "butyl_acetate": { name: "n-Butyl Acetate", hansen: { d: 15.8, p: 3.7, h: 6.3 } }, "hexane": { name: "n-Hexane", hansen: { d: 14.9, p: 0.0, h: 0.0 } }, "heptane": { name: "n-Heptane", hansen: { d: 15.3, p: 0.0, h: 0.0 } }, "cyclohexane": { name: "Cyclohexane", hansen: { d: 16.8, p: 0.0, h: 0.2 } }, "toluene": { name: "Toluene", hansen: { d: 18.0, p: 1.4, h: 2.0 } }, "xylene": { name: "Xylene (mixed)", hansen: { d: 17.6, p: 1.0, h: 3.1 } }, "anisole": { name: "Anisole", hansen: { d: 17.8, p: 4.3, h: 6.8 } }, "dcm": { name: "Dichloromethane (DCM)", hansen: { d: 17.0, p: 7.3, h: 7.1 } }, "chlorobenzene": { name: "Chlorobenzene", hansen: { d: 19.0, p: 4.3, h: 2.0 } }, "thf": { name: "Tetrahydrofuran (THF)", hansen: { d: 16.8, p: 5.7, h: 8.0 } }, "dioxane": { name: "1,4-Dioxane", hansen: { d: 17.5, p: 1.8, h: 9.0 } }, "acetic_acid": { name: "Acetic Acid", hansen: { d: 14.5, p: 8.0, h: 13.5 } }, "acetonitrile": { name: "Acetonitrile (ACN)", hansen: { d: 15.3, p: 18.0, h: 6.1 } }, "dmf": { name: "Dimethylformamide (DMF)", hansen: { d: 17.4, p: 13.7, h: 11.3 } }, "dmac": { name: "Dimethylacetamide (DMAC)", hansen: { d: 16.8, p: 11.5, h: 10.2 } }, "dmso": { name: "Dimethyl Sulfoxide (DMSO)", hansen: { d: 18.4, p: 16.4, h: 10.2 } }, "nmp": { name: "N-Methyl-2-pyrrolidone (NMP)", hansen: { d: 18.0, p: 12.3, h: 7.2 } } };
+    
+    let RDKit = null;
+    let estimatedSoluteHSP = null;
+    const $ = id => document.getElementById(id);
+
+    // --- INITIALIZATION ---
+    window.initRDKitModule().then(rdkit => {
+        RDKit = rdkit;
+        $('status').style.display = 'none';
+        $('main-content').style.display = 'block';
+    }).catch(() => {
+        $('status').textContent = 'Error loading RDKit.js. Please check your internet connection.';
+        $('status').style.color = 'red';
+    });
+
+    // --- HELPER FUNCTIONS ---
+    const calculateRa = (hsp1, hsp2) => Math.sqrt(4*(hsp1.d-hsp2.d)**2 + (hsp1.p-hsp2.p)**2 + (hsp1.h-hsp2.h)**2);
+    
+    // --- MODULE 1: SMILES ESTIMATION ---
+    function estimateFromSmiles() {
+        if (!RDKit) return alert("RDKit.js is not yet ready.");
+        const smiles = $('smiles-input').value;
+        if (!smiles) return alert("Please enter a SMILES string.");
+
+        let mol;
+        try { mol = RDKit.get_mol(smiles); if (!mol || !mol.is_valid()) throw new Error();
+        } catch (e) { return alert("Invalid SMILES string."); }
+
+        let Fd=0, Fp2=0, Eh=0, V=0;
+        Object.keys(GROUP_DB).forEach(key => {
+            const group = GROUP_DB[key];
+            const query = RDKit.get_qmol(group.smarts);
+            const matches = mol.get_substruct_matches(query);
+            const count = JSON.parse(matches).length;
+            if (count > 0) {
+                const g = GROUP_DB[key];
+                Fd += count * g.Fd;
+                Fp2 += count * (g.Fp**2);
+                Eh += count * g.Eh;
+                V += count * g.V;
+            }
+            query.delete();
+        });
+        mol.delete();
+
+        if (V === 0) {
+            alert("Could not estimate properties. No matching groups from the database were found in this molecule.");
+            return;
+        }
+        
+        estimatedSoluteHSP = {
+            d: Fd / V,
+            p: Math.sqrt(Fp2) / V,
+            h: Math.sqrt(Eh / V),
+            vm: V
+        };
+        
+        const resultsTable = $('estimation-results');
+        resultsTable.style.display = 'table';
+        resultsTable.innerHTML = `
+            <thead><tr><th>Parameter</th><th>Estimated Value</th></tr></thead>
+            <tbody>
+                <tr><td>δD (Dispersion)</td><td>${estimatedSoluteHSP.d.toFixed(2)}</td></tr>
+                <tr><td>δP (Polar)</td><td>${estimatedSoluteHSP.p.toFixed(2)}</td></tr>
+                <tr><td>δH (H-Bond)</td><td>${estimatedSoluteHSP.h.toFixed(2)}</td></tr>
+                <tr><td>Vₘ (Molar Volume)</td><td>${estimatedSoluteHSP.vm.toFixed(2)} cm³/mol</td></tr>
+            </tbody>
+        `;
+        
+        $('ranking-module').style.display = 'block';
+    }
+
+    // --- MODULE 2: AFFINITY RANKING ---
+    function rankAffinities() {
+        if (!estimatedSoluteHSP) {
+            alert("Please estimate the solute properties first using Module 1.");
+            return;
+        }
+
+        const allSolventKeys = Object.keys(SOLVENT_DB);
+
+        const rankedResults = allSolventKeys.map(key => {
+            const solvent = SOLVENT_DB[key];
+            const Ra = calculateRa(estimatedSoluteHSP, solvent.hansen);
+            return { name: solvent.name, Ra: Ra };
+        });
+
+        rankedResults.sort((a, b) => a.Ra - b.Ra);
+
+        const topResults = rankedResults.slice(0, 15);
+
+        const resultsTable = $('ranking-results');
+        resultsTable.innerHTML = `
+            <thead><tr><th>Rank</th><th>Solvent</th><th>Hansen Distance (Ra)</th></tr></thead>
+            <tbody>
+                ${topResults.map((res, index) => `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${res.name}</td>
+                        <td><strong>${res.Ra.toFixed(2)}</strong></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        `;
+        
+        $('ranking-results-container').style.display = 'block';
+    }
+</script>
+</body>
+</html>

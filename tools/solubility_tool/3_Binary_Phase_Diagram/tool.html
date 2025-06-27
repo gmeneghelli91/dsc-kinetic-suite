@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-S7BR3ME7C7"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-S7BR3ME7C7');
+</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final Corrected: Binary Phase Diagram Simulator</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root {
+            --primary-color: #4a4e69;
+            --secondary-color: #9a8c98;
+            --accent-color: #c9ada7;
+            --text-color: #22223b;
+            --result-color: #f2e9e4;
+            --highlight-color: #9a8c98;
+            --error-color: #c0392b;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 2rem; background-color: #f2e9e4; color: var(--text-color); }
+        .container { width: 100%; max-width: 800px; margin: auto; background-color: white; padding: 2.5rem; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+        h1, h2, h4 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 0.5rem; margin-top: 0; }
+        h2 { margin-top: 2rem; font-size: 1.5rem; }
+        h4 { font-size: 1.1em; color: var(--primary-color); border-bottom: 1px solid #ddd; padding-bottom: 0.5rem; margin-bottom: 1rem;}
+        fieldset { border: 1px solid #ccc; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; }
+        legend { font-weight:bold; padding: 0 0.5em; color: var(--primary-color); }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { font-weight: bold; display: block; margin-bottom: 0.5rem; }
+        .form-group input, .form-group select { width: 100%; padding: 0.6rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1rem; }
+        .btn { border: none; border-radius: 4px; padding: 1rem; font-size: 1.1rem; cursor: pointer; color: white; transition: background-color 0.2s; font-weight: bold; width: 100%; margin-top: 0.5rem;}
+        .btn-predict { background-color: var(--highlight-color); }
+        .btn-calibrate { background-color: var(--accent-color); color: var(--text-color); }
+        .btn-session { background-color: #6c757d; font-size: 1rem; padding: 0.8rem; }
+        .result-summary { margin-top: 2rem; padding: 1.5rem; background-color: var(--result-color); border-radius: 8px; text-align: center; }
+        .result-summary .label { font-weight: bold; color: var(--primary-color); display: block; font-size: 1.2rem; }
+        .result-summary .value { font-size: 2.2rem; font-weight: bold; color: var(--text-color); }
+        .intro-box { background-color: #eef3f8; border-left: 5px solid var(--primary-color); padding: 1.5rem 2rem; margin-bottom: 2.5rem; line-height: 1.6; font-size: 0.95em; }
+        .intro-box hr { border: 0; border-top: 1px solid #d0e0ed; margin: 1.5rem 0; }
+        .k-factor-table { border-collapse: collapse; width: 100%; margin-top: 1rem; font-size: 0.9em; }
+        .k-factor-table th, .k-factor-table td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        .k-factor-table th { background-color: var(--secondary-color); color: white; }
+        .k-factor-table tr:nth-child(even) { background-color: #f2f2f2; }
+        #error-box { display: none; margin-top: 1rem; padding: 1rem; background-color: #fbeae5; border: 1px solid #c0392b; color: #c0392b; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Binary Phase Diagram Simulator</h1>
+    
+    <div class="intro-box">
+        <h4>How to Use This Tool</h4>
+        <p>This tool predicts a solute's quantitative solubility across the entire compositional range of a two-solvent (binary) mixture, helping you find **synergistic solubility peaks** where a mixture is a better solvent than either of its pure components.</p>
+        <ol>
+            <li><strong>Enter Solute Data:</strong> Fill in all 7 physical and HSP properties for your solute.</li>
+            <li><strong>Select Solvents:</strong> Choose the two solvents (A and B) you wish to blend.</li>
+            <li><strong>Choose Prediction Mode:</strong>
+                <ul>
+                    <li>For a quick **Exploratory Prediction**, enter an estimated `k`-factor (refer to the table below) and click **"Generate Diagram (with Manual `k`)"**.</li>
+                    <li>For a high-accuracy **Calibrated Prediction**, enter one known experimental solubility data point (for either pure Solvent A or B) and click **"Calibrate `k` & Generate Diagram"**.</li>
+                </ul>
+            </li>
+            <li><strong>Analyze the Diagram:</strong> The chart will show the solubility curve. The summary below will highlight the mixture with the highest predicted solubility.</li>
+        </ol>
+        <hr>
+        <h4>Guide to the Interaction Correction Factor (k)</h4>
+        <p>The `k`-factor tunes the calculation for specific chemical interactions. Use this table for a good starting estimate:</p>
+        <table class="k-factor-table">
+            <thead><tr><th>System Type (Solute in Solvent)</th><th>Indicative `k` Value</th></tr></thead>
+            <tbody>
+                <tr><td>Non-polar in Non-polar</td><td><strong>0.8 - 1.0</strong></td></tr>
+                <tr><td>Polar in Polar (no strong H-Bonds)</td><td><strong>0.3 - 0.6</strong></td></tr>
+                <tr><td>System with strong Hydrogen Bonding</td><td><strong>0.02 - 0.2</strong></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="module">
+        <h2>1. Define Your System</h2>
+        <div id="error-box"></div>
+        <fieldset>
+            <legend>Solute Properties</legend>
+            <div class="form-grid">
+                <div class="form-group"><label>Tₘ (°C)</label><input type="number" id="solute-tm"></div>
+                <div class="form-group"><label>MW (g/mol)</label><input type="number" id="solute-mw"></div>
+                <div class="form-group"><label>ΔH_fus (J/mol)</label><input type="number" id="solute-hf"></div>
+                <div class="form-group"><label>Vₘ (cm³/mol)</label><input type="number" id="solute-vm"></div>
+            </div>
+            <div class="form-group"><label>Solute HSP (δD, δP, δH)</label><div style="display:flex; gap: 5px;"><input type="number" id="solute-dD" placeholder="δD"><input type="number" id="solute-dP" placeholder="δP"><input type="number" id="solute-dH" placeholder="δH"></div></div>
+        </fieldset>
+        <fieldset>
+            <legend>Binary Solvent System & Conditions</legend>
+            <div class="form-grid">
+                <div class="form-group"><label>Solvent A</label><select id="solvent-a"></select></div>
+                <div class="form-group"><label>Solvent B</label><select id="solvent-b"></select></div>
+            </div>
+             <div class="form-group"><label>Temperature (T) (°C)</label><input type="number" id="temp" value="25"></div>
+        </fieldset>
+         <fieldset>
+            <legend>Action: Choose Prediction Mode</legend>
+            <div class="form-group"><label><input type="radio" name="k-mode" value="manual" checked onchange="toggleKMode()"> Use Indicative k-Factor</label><input type="number" id="k-factor" value="1.0" step="0.01"></div>
+            <button class="btn btn-predict" onclick="generatePhaseDiagram(false)">Generate Diagram (with Manual `k`)</button>
+            <hr style="margin:1.5rem 0;">
+            <div class="form-group"><label><input type="radio" name="k-mode" value="calibrate" onchange="toggleKMode()"> Calibrate `k` from Experimental Data</label></div>
+            <div id="calibration-inputs" style="display:none; padding-left:1rem; border-left:3px solid #ccc; margin-top:0.5rem;">
+                <div class="form-group"><label>Known Solubility in:</label><select id="calibration-solvent"><option value="A">Solvent A</option><option value="B">Solvent B</option></select></div>
+                <div class="form-group"><label>Measured Solubility (mg/mL)</label><input type="number" id="known-solubility"></div>
+            </div>
+             <button class="btn btn-calibrate" onclick="generatePhaseDiagram(true)">Calibrate `k` & Generate Diagram</button>
+        </fieldset>
+        <fieldset>
+            <legend>Session Management</legend>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
+                <button class="btn btn-session" onclick="saveSession()">Save Session</button>
+                <button class="btn btn-session" onclick="$('load-session-input').click()">Load Session</button>
+                <input type="file" id="load-session-input" style="display: none;" onchange="loadSession(event)" accept=".json">
+            </div>
+        </fieldset>
+    </div>
+    
+    <div class="module" id="results-module" style="display:none;">
+        <h2>2. Solubility Phase Diagram</h2>
+        <canvas id="solubilityChart"></canvas>
+        <div id="results-summary" class="result-summary"></div>
+    </div>
+</div>
+
+<script>
+    'use strict';
+    // --- DATABASE (EXPANDED) & GLOBALS ---
+    const SOLVENT_DB = { "water":{name:"Water",hansen:{d:15.5,p:16.0,h:42.3},mw:18.02,density:1.0},"methanol":{name:"Methanol",hansen:{d:14.7,p:12.3,h:22.3},mw:32.04,density:0.792},"ethanol":{name:"Ethanol",hansen:{d:15.8,p:8.8,h:19.4},mw:46.07,density:0.789},"isopropanol":{name:"Isopropanol (IPA)",hansen:{d:15.8,p:6.1,h:16.4},mw:60.1,density:0.786},"ethylene_glycol":{name:"Ethylene Glycol",hansen:{d:17.0,p:11.0,h:26.0}},"propylene_glycol":{name:"Propylene Glycol",hansen:{d:16.8,p:9.4,h:23.3}},"glycerol":{name:"Glycerol",hansen:{d:17.4,p:12.1,h:29.3}},"acetone":{name:"Acetone",hansen:{d:15.5,p:10.4,h:7.0},mw:58.08,density:0.791},"cyclohexanone":{name:"Cyclohexanone",hansen:{d:17.8,p:6.3,h:5.1}},"ethyl_acetate":{name:"Ethyl Acetate",hansen:{d:15.8,p:5.3,h:7.2},mw:88.11,density:0.902},"isopropyl_acetate":{name:"Isopropyl Acetate",hansen:{d:15.1,p:4.3,h:6.1}},"butyl_acetate":{name:"n-Butyl Acetate",hansen:{d:15.8,p:3.7,h:6.3}},"hexane":{name:"n-Hexane",hansen:{d:14.9,p:0.0,h:0.0},mw:86.18,density:0.655},"heptane":{name:"n-Heptane",hansen:{d:15.3,p:0.0,h:0.0},mw:100.21,density:0.684},"cyclohexane":{name:"Cyclohexane",hansen:{d:16.8,p:0.0,h:0.2},mw:84.16,density:0.779},"toluene":{name:"Toluene",hansen:{d:18.0,p:1.4,h:2.0},mw:92.14,density:0.867},"xylene":{name:"Xylene (mixed)",hansen:{d:17.6,p:1.0,h:3.1}},"anisole":{name:"Anisole",hansen:{d:17.8,p:4.3,h:6.8}},"dcm":{name:"Dichloromethane (DCM)",hansen:{d:17.0,p:7.3,h:7.1}},"chlorobenzene":{name:"Chlorobenzene",hansen:{d:19.0,p:4.3,h:2.0}},"thf":{name:"Tetrahydrofuran (THF)",hansen:{d:16.8,p:5.7,h:8.0},mw:72.11,density:0.889},"dioxane":{name:"1,4-Dioxane",hansen:{d:17.5,p:1.8,h:9.0}},"acetic_acid":{name:"Acetic Acid",hansen:{d:14.5,p:8.0,h:13.5}},"acetonitrile":{name:"Acetonitrile (ACN)",hansen:{d:15.3,p:18.0,h:6.1},mw:41.05,density:0.786},"dmf":{name:"Dimethylformamide (DMF)",hansen:{d:17.4,p:13.7,h:11.3},mw:73.09,density:0.944},"dmac":{name:"Dimethylacetamide (DMAC)",hansen:{d:16.8,p:11.5,h:10.2}},"dmso":{name:"Dimethyl Sulfoxide (DMSO)",hansen:{d:18.4,p:16.4,h:10.2},mw:78.13,density:1.100},"nmp":{name:"N-Methyl-2-pyrrolidone (NMP)",hansen:{d:18.0,p:12.3,h:7.2}} };
+    let myChart = null;
+    const R_GAS_CONSTANT = 8.314;
+    const $ = id => document.getElementById(id);
+
+    document.addEventListener('DOMContentLoaded', () => { ['solvent-a', 'solvent-b'].forEach(id => populateSelect(id, SOLVENT_DB)); });
+    
+    function populateSelect(selectId, db) { const select = $(selectId); select.innerHTML = `<option value="">— Select a Solvent —</option>`+Object.keys(db).sort((a,b)=>(db[a].name).localeCompare(db[b].name)).map(key => `<option value="${key}">${db[key].name}</option>`).join(''); }
+    function toggleKMode() { const isCalibrate = document.querySelector('[name="k-mode"]:checked').value === 'calibrate'; $('calibration-inputs').style.display = isCalibrate ? 'block' : 'none'; $('k-factor').disabled = isCalibrate; }
+    
+    // --- DEFINITIVE, ROBUST INPUT VALIDATION FUNCTION ---
+    function getInputs(isCalibratedMode) {
+        let errors = [];
+        const solute = { hsp: {} };
+        // Read each value directly by its correct ID, no loops
+        solute.tm = parseFloat($('solute-tm').value);
+        solute.mw = parseFloat($('solute-mw').value);
+        solute.hf = parseFloat($('solute-hf').value);
+        solute.vm = parseFloat($('solute-vm').value);
+        solute.hsp.d = parseFloat($('solute-dD').value);
+        solute.hsp.p = parseFloat($('solute-dP').value);
+        solute.hsp.h = parseFloat($('solute-dH').value);
+
+        // Validate each one individually
+        if (isNaN(solute.tm)) errors.push("Melting Point (Tₘ)");
+        if (isNaN(solute.mw)) errors.push("Molecular Weight (MW)");
+        if (isNaN(solute.hf)) errors.push("Enthalpy of Fusion (ΔH_fus)");
+        if (isNaN(solute.vm)) errors.push("Molar Volume (Vₘ)");
+        if (isNaN(solute.hsp.d)) errors.push("Solute δD");
+        if (isNaN(solute.hsp.p)) errors.push("Solute δP");
+        if (isNaN(solute.hsp.h)) errors.push("Solute δH");
+        
+        const tempC = parseFloat($('temp').value); if(isNaN(tempC)) errors.push("Temperature");
+        const tempK = tempC + 273.15;
+        solute.tmK = solute.tm + 273.15;
+        if(!isNaN(solute.tm) && tempK >= solute.tmK) errors.push("a Temperature below the Melting Point");
+        
+        let kFactor, knownSolubility, calibSolventChoice;
+        if(isCalibratedMode) {
+            knownSolubility = parseFloat($('known-solubility').value); if(isNaN(knownSolubility)) errors.push("Known Solubility for calibration");
+            calibSolventChoice = $('calibration-solvent').value;
+        } else {
+            kFactor = parseFloat($('k-factor').value); if(isNaN(kFactor)) errors.push("k-Factor");
+        }
+        
+        const solventA_id = $('solvent-a').value, solventB_id = $('solvent-b').value;
+        if (!solventA_id || !solventB_id) { errors.push("both Solvent A and B"); } 
+        else if (solventA_id === solventB_id) { errors.push("two different solvents"); }
+        const errorBox = $('error-box');
+        if (errors.length > 0) {
+            errorBox.style.display = 'block';
+            errorBox.innerHTML = `<strong>Please provide valid inputs for:</strong><ul>${errors.map(e => `<li>${e}</li>`).join('')}</ul>`;
+            return {solute: null};
+        } else {
+            errorBox.style.display = 'none';
+        }
+        return { solute, tempK, solventA_id, solventB_id, kFactor, knownSolubility, calibSolventChoice };
+    }
+    
+    function calculateKFactor(solute, tempK, knownSolvent, knownSolubility_mgmL) { const x_real = convertMgMlToMoleFraction(knownSolubility_mgmL, solute.mw, knownSolvent); if (isNaN(x_real) || x_real >= 1) return null; const ln_x_real = Math.log(x_real); const ln_x_ideal = -(solute.hf / R_GAS_CONSTANT) * ((solute.tmK - tempK) / (tempK * solute.tmK)); const ln_gamma_real = ln_x_ideal - ln_x_real; const Ra = Math.sqrt(4*(solute.hsp.d - knownSolvent.hansen.d)**2 + (solute.hsp.p - knownSolvent.hansen.p)**2 + (solute.hsp.h - knownSolvent.hansen.h)**2); const interactionTerm = (solute.vm / (R_GAS_CONSTANT * tempK)) * (Ra**2); return (interactionTerm === 0) ? Infinity : (ln_gamma_real / interactionTerm); }
+    function calculateThermodynamicSolubility(solute, mixture, tempK, kFactor) { const ln_x_ideal = -(solute.hf / R_GAS_CONSTANT) * ((solute.tmK - tempK) / (tempK * solute.tmK)); const Ra = Math.sqrt(4*(solute.hsp.d - mixture.hansen.d)**2 + (solute.hsp.p - mixture.hansen.p)**2 + (solute.hsp.h - mixture.hansen.h)**2); const ln_gamma = kFactor * (solute.vm / (R_GAS_CONSTANT * tempK)) * (Ra**2); const ln_x_real = ln_x_ideal - ln_gamma; const x_real = Math.exp(ln_x_real); return convertMoleFractionToMgMl(x_real, solute.mw, mixture); }
+    function convertMoleFractionToMgMl(x_solute, mw_solute, solvent) { if (x_solute >= 1) return Infinity; const moles_solute = x_solute / (1 - x_solute); const mass_solute_g = moles_solute * mw_solute; const volume_solvent_mL = (1 * solvent.mw) / solvent.density; return (mass_solute_g / volume_solvent_mL) * 1000; }
+    function convertMgMlToMoleFraction(solubility_mgmL, mw_solute, solvent) { const mass_solute_g = solubility_mgmL / 1000; const moles_solute = mass_solute_g / mw_solute; const mass_solvent_g = 1 * solvent.density; const moles_solvent = mass_solvent_g / solvent.mw; return moles_solute / (moles_solute + moles_solvent); }
+    
+    function generatePhaseDiagram(isCalibrated) { const inputs = getInputs(isCalibrated); if (!inputs.solute) return; let kFactor = inputs.kFactor; if (isCalibrated) { const calibSolventId = $(inputs.calibSolventChoice === 'A' ? 'solvent-a' : 'solvent-b').value; const calibSolvent = SOLVENT_DB[calibSolventId]; kFactor = calculateKFactor(inputs.solute, inputs.tempK, calibSolvent, inputs.knownSolubility); if (kFactor === null || isNaN(kFactor)) return alert("Could not calculate k-factor. Check inputs."); $('k-factor').value = kFactor.toFixed(3); } const solventA = SOLVENT_DB[inputs.solventA_id], solventB = SOLVENT_DB[inputs.solventB_id]; let labels = [], results = []; let maxSol = -1, bestMix = ""; for (let i = 0; i <= 100; i += 5) { const fracB = i/100, fracA = 1 - fracB; const mixture = { hansen: { d: fracA*solventA.hansen.d + fracB*solventB.hansen.d, p: fracA*solventA.hansen.p + fracB*solventB.hansen.p, h: fracA*solventA.hansen.h + fracB*solventB.hansen.h }, mw: fracA*solventA.mw + fracB*solventB.mw, density: fracA*solventA.density + fracB*solventB.density }; const solubility = calculateThermodynamicSolubility(inputs.solute, mixture, inputs.tempK, kFactor); labels.push(`${100-i}/${i}`); results.push(solubility); if(solubility > maxSol) { maxSol = solubility; bestMix = `${100-i}% ${solventA.name} / ${i}% ${solventB.name}`; } } $('results-module').style.display = 'block'; drawChart(labels, results, solventA.name, solventB.name); const summary = $('results-summary'); summary.style.display = 'block'; summary.innerHTML = `<span class="label">Maximum Solubility Found:</span><span class="value">${maxSol.toPrecision(3)} mg/mL</span><span class="label" style="font-size:1rem; margin-top:0.5rem;">at composition: ${bestMix}</span>`; }
+    function drawChart(labels, data, nameA, nameB) { const ctx = $('solubilityChart').getContext('2d'); if (myChart) myChart.destroy(); myChart = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [{ label: 'Estimated Solubility (mg/mL)', data: data, borderColor: 'rgba(238, 108, 77, 1)', backgroundColor: 'rgba(238, 108, 77, 0.2)', fill: true, tension: 0.2 }] }, options: { scales: { y: { title: { display: true, text: 'Solubility (mg/mL)' } }, x: { title: { display: true, text: `Mixture Composition (% ${nameA} / % ${nameB})` } } } } }); }
+    
+    function saveSession() { const inputIds = ['solute-tm', 'solute-mw', 'solute-hf', 'solute-vm', 'solute-dD', 'solute-dP', 'solute-dH', 'solvent-a', 'solvent-b', 'temp', 'k-factor', 'calibration-solvent', 'known-solubility']; const sessionData = { inputs: {}, kMode: document.querySelector('[name="k-mode"]:checked').value }; inputIds.forEach(id => { if ($(id)) sessionData.inputs[id] = $(id).value; }); const blob = new Blob([JSON.stringify(sessionData, null, 2)], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `phase_diagram_session.json`; a.click(); URL.revokeObjectURL(a.href); }
+    function loadSession(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = function(e) { try { const data = JSON.parse(e.target.result); if (!data.inputs || !data.kMode) throw new Error('Invalid file format'); for(const id in data.inputs) { if($(id)) $(id).value = data.inputs[id]; } document.querySelector(`[name="k-mode"][value="${data.kMode}"]`).checked = true; toggleKMode(); event.target.value = ''; alert('Session loaded successfully!'); } catch (error) { alert('Error: The selected file is not a valid session file.'); } }; reader.readAsText(file); }
+</script>
+</body>
+</html>
