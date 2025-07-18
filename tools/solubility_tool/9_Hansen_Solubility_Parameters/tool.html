@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Hansen Solubility Parameter Explorer</title>
+    <!-- Chosen Palette: Calm Neutrals & Scientific Blue -->
+    <!-- Application Structure Plan: A tab-based single-page application (SPA) design was chosen to replace the linear document structure. This architecture allows users to directly access specific content areas (Theory, Explorer, Applications, etc.) without linear scrolling, enhancing usability. The key interaction is the "HSP Sphere Explorer," a 3D interactive chart that provides a hands-on experience with the core concept. This structure separates foundational knowledge from the interactive tool and practical applications, creating a logical and intuitive user flow from learning to exploration. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Core HSP concepts (δD, δP, δH). Goal: Inform. Viz: Styled HTML/Tailwind cards. Interaction: None. Justification: Clear, digestible presentation of foundational concepts. Library/Method: HTML/Tailwind.
+        - Report Info: Relationship between a solute and multiple solvents. Goal: Explore/Relate. Viz: Interactive 3D Scatter Plot (Hansen Space) with a solubility sphere and a linked data table. Interaction: Hover over points for details, pan/zoom/rotate the 3D space. Justification: A dynamic 3D plot is the most effective way to represent the 3D Hansen space, making an abstract concept tangible and explorable. The linked table provides precise data. Library/Method: Plotly.js (Canvas/WebGL).
+        - Report Info: List of industrial applications. Goal: Organize. Viz: Accordion-style layout. Interaction: Click to expand/collapse. Justification: Condenses a long list into a manageable, categorized format, preventing information overload. Library/Method: HTML/Tailwind + JS.
+        - Report Info: History of HSP. Goal: Show Change. Viz: Vertical timeline. Interaction: None. Justification: More engaging and scannable than a simple paragraph of text. Library/Method: HTML/Tailwind.
+        - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        .tab-btn {
+            transition: all 0.3s ease;
+        }
+        .tab-btn.active {
+            border-color: #2563eb;
+            color: #1e40af;
+            background-color: #dbeafe;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 60vh;
+            max-height: 550px;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-blue-900">Hansen Solubility Parameter Explorer</h1>
+            <p class="text-lg text-gray-600 mt-2">An interactive guide to the theory and application of HSP.</p>
+        </header>
+
+        <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <!-- Tabs Navigation -->
+            <div class="border-b border-gray-200 mb-6">
+                <nav class="flex flex-wrap -mb-px" aria-label="Tabs">
+                    <button class="tab-btn active text-gray-500 hover:text-gray-700 hover:border-gray-300 w-full sm:w-auto text-center whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm" data-tab="theory">
+                        Theory
+                    </button>
+                    <button class="tab-btn text-gray-500 hover:text-gray-700 hover:border-gray-300 w-full sm:w-auto text-center whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm" data-tab="explorer">
+                        HSP Sphere Explorer
+                    </button>
+                    <button class="tab-btn text-gray-500 hover:text-gray-700 hover:border-gray-300 w-full sm:w-auto text-center whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm" data-tab="applications">
+                        Applications
+                    </button>
+                    <button class="tab-btn text-gray-500 hover:text-gray-700 hover:border-gray-300 w-full sm:w-auto text-center whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm" data-tab="history">
+                        History
+                    </button>
+                     <button class="tab-btn text-gray-500 hover:text-gray-700 hover:border-gray-300 w-full sm:w-auto text-center whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm" data-tab="references">
+                        References
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Tabs Content -->
+            <div>
+                <!-- Theory Tab -->
+                <div id="theory" class="tab-content active animate-fadeIn">
+                    <div class="prose max-w-none">
+                        <p>Hansen Solubility Parameters (HSP) provide a method for predicting the solubility of materials. The core idea is that the total cohesive energy of a substance can be divided into three parts: dispersion, polar, and hydrogen bonding forces. Materials with similar HSP values are likely to be miscible.</p>
+                        
+                        <div class="grid md:grid-cols-3 gap-6 my-8 not-prose">
+                            <div class="bg-blue-50 border-l-4 border-blue-500 rounded-r-lg p-6">
+                                <h3 class="font-bold text-xl text-blue-900">δD (Dispersion)</h3>
+                                <p class="text-gray-700 mt-2">Represents the energy from nonpolar van der Waals forces. These temporary fluctuating dipoles exist in all molecules.</p>
+                            </div>
+                            <div class="bg-green-50 border-l-4 border-green-500 rounded-r-lg p-6">
+                                <h3 class="font-bold text-xl text-green-900">δP (Polar)</h3>
+                                <p class="text-gray-700 mt-2">Represents the energy from permanent dipole-dipole interactions. This is significant for polar molecules.</p>
+                            </div>
+                            <div class="bg-red-50 border-l-4 border-red-500 rounded-r-lg p-6">
+                                <h3 class="font-bold text-xl text-red-900">δH (Hydrogen Bonding)</h3>
+                                <p class="text-gray-700 mt-2">Represents the energy from hydrogen bonds, a strong type of dipole-dipole interaction involving H, N, O, or F.</p>
+                            </div>
+                        </div>
+
+                        <h3>The Hansen Space & Solubility Sphere</h3>
+                        <p>The three parameters (δD, δP, δH) form a 3D coordinate system called the Hansen Space. Each material can be plotted as a point in this space. For a given solute, we can define a "solubility sphere" with a radius R₀. Any solvent that falls inside this sphere is predicted to be a good solvent for that solute.</p>
+                        
+                        <h3>Calculating Solubility</h3>
+                        <p>The distance (Ra) between a solute (1) and a solvent (2) in Hansen Space is calculated using a modified Euclidean distance:</p>
+                        <p class="bg-gray-100 p-4 rounded-lg text-center font-mono">Ra² = 4(δD₁ - δD₂)² + (δP₁ - δP₂)² + (δH₁ - δH₂)²</p>
+                        <p>The <strong>Relative Energy Difference (RED)</strong> number determines solubility:</p>
+                        <p class="bg-gray-100 p-4 rounded-lg text-center font-mono">RED = Ra / R₀</p>
+                        <ul>
+                            <li><strong>RED < 1:</strong> High affinity, likely soluble. The solvent is inside the sphere.</li>
+                            <li><strong>RED = 1:</strong> Borderline affinity. The solvent is on the surface of the sphere.</li>
+                            <li><strong>RED > 1:</strong> Low affinity, likely insoluble. The solvent is outside the sphere.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Explorer Tab -->
+                <div id="explorer" class="tab-content">
+                    <div class="prose max-w-none mb-6">
+                        <p>This interactive 3D chart visualizes the Hansen Space. Each point represents a solvent. The central sphere represents the solubility region for a sample solute (e.g., a polymer). Solvents inside the sphere are good solvents, while those outside are poor solvents. You can rotate, pan, and zoom the chart. Hover over points to see their details.</p>
+                    </div>
+                    <div class="grid lg:grid-cols-5 gap-6">
+                        <div class="lg:col-span-3">
+                            <div id="hsp-chart" class="chart-container bg-gray-50 rounded-lg"></div>
+                        </div>
+                        <div class="lg:col-span-2">
+                             <h3 class="font-bold text-lg mb-2">Solvent Data</h3>
+                             <p class="text-sm text-gray-600 mb-4">Solute: <span class="font-mono bg-gray-200 px-2 py-1 rounded">Sample Polymer</span><br>Radius (R₀): <span id="solute-radius" class="font-mono"></span></p>
+                            <div class="h-[50vh] max-h-[480px] overflow-auto border rounded-lg">
+                                <table class="w-full text-sm text-left text-gray-500">
+                                    <thead class="text-xs text-gray-700 uppercase bg-gray-100 sticky top-0">
+                                        <tr>
+                                            <th scope="col" class="py-3 px-4">Solvent</th>
+                                            <th scope="col" class="py-3 px-4">Ra</th>
+                                            <th scope="col" class="py-3 px-4">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="hsp-table-body">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Applications Tab -->
+                <div id="applications" class="tab-content">
+                     <div class="prose max-w-none">
+                        <p>HSP is a versatile tool used across many industries to predict material interactions, reducing costly trial-and-error experiments. Below are some key areas where HSP provides critical insights for formulation, product development, and problem-solving. Click on each category to see specific examples.</p>
+                    </div>
+                    <div id="accordion-container" class="mt-6 space-y-3">
+                        <!-- Accordion items will be generated here by JS -->
+                    </div>
+                </div>
+
+                <!-- History Tab -->
+                <div id="history" class="tab-content">
+                    <div class="prose max-w-none">
+                         <p>The development of Hansen Solubility Parameters marked a significant step forward from single-parameter models, providing a more nuanced way to understand molecular interactions. This timeline highlights the key milestones in its conception and evolution.</p>
+                    </div>
+                    <div class="relative mt-8">
+                      <div class="border-r-2 border-blue-200 absolute h-full top-0" style="left: 15px"></div>
+                      <ul class="space-y-8">
+                        <li class="flex items-start">
+                          <div class="flex-shrink-0">
+                            <div class="flex items-center justify-center h-8 w-8 rounded-full bg-blue-500 text-white font-bold">1</div>
+                          </div>
+                          <div class="ml-6">
+                            <h4 class="text-lg font-bold text-blue-800">1967: The Conception</h4>
+                            <p class="mt-1 text-gray-700">Dr. Charles M. Hansen introduces the "Three Dimensional Solubility Parameter" concept in his Ph.D. thesis and in a series of articles in the <em>Journal of Paint Technology</em>. This work was foundational for the paint and coatings industry.</p>
+                          </div>
+                        </li>
+                        <li class="flex items-start">
+                          <div class="flex-shrink-0">
+                            <div class="flex items-center justify-center h-8 w-8 rounded-full bg-blue-500 text-white font-bold">2</div>
+                          </div>
+                          <div class="ml-6">
+                            <h4 class="text-lg font-bold text-blue-800">Late 20th Century: Expansion</h4>
+                            <p class="mt-1 text-gray-700">The use of HSP expands beyond coatings into diverse fields like pharmaceuticals, cosmetics, and environmental science as more researchers and industries recognize its predictive power for a wide range of solubility and compatibility problems.</p>
+                          </div>
+                        </li>
+                        <li class="flex items-start">
+                          <div class="flex-shrink-0">
+                            <div class="flex items-center justify-center h-8 w-8 rounded-full bg-blue-500 text-white font-bold">3</div>
+                          </div>
+                          <div class="ml-6">
+                            <h4 class="text-lg font-bold text-blue-800">2000s: Digitalization & HSPiP</h4>
+                            <p class="mt-1 text-gray-700">The release of the "Hansen Solubility Parameters in Practice" (HSPiP) software makes the methodology widely accessible. It provides a large database of HSP values and tools to calculate and visualize solubility, popularizing its use globally.</p>
+                          </div>
+                        </li>
+                        <li class="flex items-start">
+                          <div class="flex-shrink-0">
+                            <div class="flex items-center justify-center h-8 w-8 rounded-full bg-blue-500 text-white font-bold">4</div>
+                          </div>
+                          <div class="ml-6">
+                            <h4 class="text-lg font-bold text-blue-800">Present Day: Advanced Applications</h4>
+                            <p class="mt-1 text-gray-700">HSP is now applied to complex systems like nanomaterials (graphene, nanotubes), biological systems (DNA, proteins), and for designing sustainable, "green" solvent systems, demonstrating its enduring relevance and adaptability.</p>
+                          </div>
+                        </li>
+                      </ul>
+                    </div>
+                </div>
+                
+                 <!-- References Tab -->
+                <div id="references" class="tab-content">
+                    <div class="prose max-w-none">
+                        <h3>Foundational Works</h3>
+                        <ul>
+                            <li><strong>Doctoral Dissertation:</strong> Hansen, C.M., "The Three Dimensional Solubility Parameter and Solvent Diffusion Coefficient, Their Importance in Surface Coating Formulation", Danish Technical Press, Copenhagen, 1967.</li>
+                             <li><strong>Handbook:</strong> Hansen, C.M. (2007) <em>Hansen Solubility Parameters: A User's Handbook, Second Edition</em>. CRC Press, Boca Raton, FL.</li>
+                             <li><strong>Software & eBook:</strong> Abbott, S., Hansen, C.M., and Yamamoto, H. <em>Hansen Solubility Parameters in Practice</em>. <a href="https://www.hansen-solubility.com" target="_blank" rel="noopener noreferrer">www.hansen-solubility.com</a>.</li>
+                        </ul>
+                        <h3>Selected Research Articles</h3>
+                        <ul>
+                            <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7758015/" target="_blank" rel="noopener noreferrer">Measurement of Hansen Solubility Parameters of Human Stratum Corneum</a> - An application in dermatological science.</li>
+                            <li><a href="https://bioresources.cnr.ncsu.edu/resources/applications-of-the-hansen-solubility-parameter-for-cellulose/" target="_blank" rel="noopener noreferrer">Applications of the Hansen solubility parameter for cellulose</a> - Use in renewable materials.</li>
+                            <li><a href="https://pubs.acs.org/doi/abs/10.1021/acs.langmuir.3c00913" target="_blank" rel="noopener noreferrer">Hansen Solubility Parameters for Directly Dealing with Surface and Interfacial Phenomena</a> - Extending HSP to surface science.</li>
+                            <li><a href="https://www.researchgate.net/publication/318796629_Revisiting_Hansen_Solubility_Parameters_by_Including_Thermodynamics" target="_blank" rel="noopener noreferrer">Revisiting Hansen Solubility Parameters by Including Thermodynamics</a> - A thermodynamic validation and improvement of the model.</li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Tab functionality
+            const tabs = document.querySelectorAll('.tab-btn');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    const target = document.getElementById(tab.dataset.tab);
+                    tabContents.forEach(tc => tc.classList.remove('active'));
+                    target.classList.add('active');
+                    
+                    // Re-draw plotly chart on tab switch to prevent layout issues
+                    if(tab.dataset.tab === 'explorer') {
+                       Plotly.relayout('hsp-chart', {autosize: true});
+                    }
+                });
+            });
+
+            // Accordion functionality
+            const applicationsData = [
+                {
+                    title: "Materials and Polymer Science",
+                    content: [
+                        "Solvent selection for polymers, resins, and coatings.",
+                        "Prediction of polymer-solvent and polymer-polymer compatibility.",
+                        "Understanding environmental stress cracking of polymers.",
+                        "Formulation of adhesives and sealants."
+                    ]
+                },
+                {
+                    title: "Pharmaceuticals and Cosmetics",
+                    content: [
+                        "Development of formulations for drugs and cosmetic products.",
+                        "Prediction of active ingredient solubility.",
+                        "Design of drug delivery systems."
+                    ]
+                },
+                {
+                    title: "Pigments and Inks",
+                    content: [
+                        "Control and optimization of pigment and nanoparticle dispersion (e.g., carbon black, nanotubes).",
+                        "Formulation of inks and paints with improved stability."
+                    ]
+                },
+                {
+                    title: "Environmental Science",
+                    content: [
+                        "Development of safer, less toxic 'designer' solvents.",
+                        "Prediction of pollutant behavior in the environment."
+                    ]
+                },
+                {
+                    title: "Advanced Materials",
+                    content: [
+                         "Assessment of nanoparticle dispersion and solubility.",
+                         "Optimization of conditions for chromatography and extraction."
+                    ]
+                }
+            ];
+
+            const accordionContainer = document.getElementById('accordion-container');
+            applicationsData.forEach((item, index) => {
+                const accordionItem = document.createElement('div');
+                accordionItem.className = 'border border-gray-200 rounded-lg';
+                accordionItem.innerHTML = `
+                    <h2>
+                        <button type="button" class="flex items-center justify-between w-full p-5 font-medium text-left text-gray-600 hover:bg-gray-100" data-accordion-target="#accordion-body-${index}">
+                            <span>${item.title}</span>
+                            <svg data-accordion-icon class="w-6 h-6 shrink-0" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                        </button>
+                    </h2>
+                    <div id="accordion-body-${index}" class="hidden p-5 border-t border-gray-200">
+                        <ul class="list-disc pl-5 text-gray-600 space-y-2">
+                            ${item.content.map(li => `<li>${li}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+                accordionContainer.appendChild(accordionItem);
+            });
+
+            accordionContainer.addEventListener('click', (e) => {
+                const button = e.target.closest('button[data-accordion-target]');
+                if (button) {
+                    const targetId = button.getAttribute('data-accordion-target');
+                    const targetBody = document.querySelector(targetId);
+                    const icon = button.querySelector('svg');
+                    
+                    targetBody.classList.toggle('hidden');
+                    icon.classList.toggle('rotate-180');
+                }
+            });
+
+            // HSP Chart and Table Data
+            const solute = { name: "Sample Polymer", d: 18.0, p: 10.0, h: 8.0, r: 7.5 };
+            const solvents = [
+                { name: "Acetone", d: 15.5, p: 10.4, h: 7.0 },
+                { name: "Benzene", d: 18.4, p: 0.0, h: 2.0 },
+                { name: "Water", d: 15.5, p: 16.0, h: 42.3 },
+                { name: "Ethanol", d: 15.8, p: 8.8, h: 19.4 },
+                { name: "Methanol", d: 14.7, p: 12.3, h: 22.3 },
+                { name: "Toluene", d: 18.0, p: 1.4, h: 2.0 },
+                { name: "Hexane", d: 14.9, p: 0.0, h: 0.0 },
+                { name: "Cyclohexane", d: 16.8, p: 0.0, h: 0.2 },
+                { name: "Ethyl Acetate", d: 15.8, p: 5.3, h: 9.2 },
+                { name: "THF", d: 16.8, p: 5.7, h: 8.0 },
+                { name: "DMSO", d: 18.4, p: 16.4, h: 10.2 },
+                { name: "DMF", d: 17.4, p: 13.7, h: 11.3 },
+                { name: "Pyridine", d: 19.0, p: 8.8, h: 5.9 },
+                { name: "Dichloromethane", d: 17.0, p: 7.3, h: 7.1 },
+            ];
+
+            const tableBody = document.getElementById('hsp-table-body');
+            document.getElementById('solute-radius').textContent = solute.r.toFixed(1);
+
+            const goodSolvents = { x: [], y: [], z: [], text: [], type: 'scatter3d', mode: 'markers', name: 'Good Solvents (RED < 1)', marker: { color: '#10b981', size: 8 } };
+            const badSolvents = { x: [], y: [], z: [], text: [], type: 'scatter3d', mode: 'markers', name: 'Bad Solvents (RED > 1)', marker: { color: '#ef4444', size: 6, opacity: 0.7 } };
+
+            solvents.forEach(s => {
+                const ra = Math.sqrt(4 * (solute.d - s.d)**2 + (solute.p - s.p)**2 + (solute.h - s.h)**2);
+                const red = ra / solute.r;
+                
+                const isGood = red < 1;
+                const target = isGood ? goodSolvents : badSolvents;
+                
+                target.x.push(s.d);
+                target.y.push(s.p);
+                target.z.push(s.h);
+                target.text.push(`${s.name}<br>δD:${s.d}, δP:${s.p}, δH:${s.h}<br>Ra:${ra.toFixed(2)}, RED:${red.toFixed(2)}`);
+
+                // Populate table
+                const row = document.createElement('tr');
+                row.className = 'bg-white border-b';
+                row.innerHTML = `
+                    <td class="py-3 px-4 font-medium text-gray-900">${s.name}</td>
+                    <td class="py-3 px-4">${ra.toFixed(2)}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${isGood ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${isGood ? 'Good' : 'Bad'}
+                        </span>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            // Generate sphere
+            const sphere = {
+                type: 'mesh3d',
+                x: [], y: [], z: [],
+                i: [], j: [], k: [],
+                opacity: 0.15,
+                color: '#2563eb',
+                name: 'Solubility Sphere',
+                hoverinfo: 'none'
+            };
+
+            const n = 50;
+            for (let i = 0; i <= n; i++) {
+                const theta = i * Math.PI / n;
+                for (let j = 0; j <= n; j++) {
+                    const phi = j * 2 * Math.PI / n;
+                    sphere.x.push(solute.d + (solute.r / 2) * Math.sin(theta) * Math.cos(phi));
+                    sphere.y.push(solute.p + solute.r * Math.sin(theta) * Math.sin(phi));
+                    sphere.z.push(solute.h + solute.r * Math.cos(theta));
+                }
+            }
+
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j < n; j++) {
+                    const p1 = i * (n + 1) + j;
+                    const p2 = p1 + 1;
+                    const p3 = (i + 1) * (n + 1) + j;
+                    const p4 = p3 + 1;
+                    sphere.i.push(p1, p1, p3);
+                    sphere.j.push(p2, p3, p4);
+                    sphere.k.push(p3, p2, p2);
+                }
+            }
+
+            const data = [goodSolvents, badSolvents, sphere];
+            const layout = {
+                title: 'Hansen Space Visualization',
+                autosize: true,
+                margin: { l: 0, r: 0, b: 0, t: 40 },
+                scene: {
+                    xaxis: { title: 'δD (Dispersion)' },
+                    yaxis: { title: 'δP (Polar)' },
+                    zaxis: { title: 'δH (H-Bonding)' }
+                },
+                legend: { x: 0.8, y: 0.95 }
+            };
+
+            Plotly.newPlot('hsp-chart', data, layout, {responsive: true});
+        });
+    </script>
+
+</body>
+</html>

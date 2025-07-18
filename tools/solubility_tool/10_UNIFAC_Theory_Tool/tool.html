@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive UNIFAC Model Explorer</title>
+    <!-- Chosen Palette: Calm Neutrals & Scientific Blue -->
+    <!-- Application Structure Plan: A tab-based single-page application (SPA) design was chosen to organize the complex information of the UNIFAC model. This structure allows users to navigate between core concepts (Theory, Group Contributions), practical applications, historical context, and references without overwhelming them. The key interaction involves dynamic content updates based on tab selection and accordion expansion for applications, facilitating a structured learning path and easy access to specific details. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Core UNIFAC concepts (combinatorial, residual, group contributions). Goal: Inform. Viz: Styled HTML/Tailwind cards and text blocks. Interaction: None. Justification: Clear, digestible presentation of foundational concepts. Library/Method: HTML/Tailwind.
+        - Report Info: UNIFAC applications. Goal: Organize. Viz: Accordion-style layout. Interaction: Click to expand/collapse. Justification: Condenses a long list into a manageable, categorized format, preventing information overload and allowing users to explore specific areas of interest. Library/Method: HTML/Tailwind + JS.
+        - Report Info: History of UNIFAC. Goal: Show Change. Viz: Vertical timeline. Interaction: None. Justification: More engaging and scannable than a simple paragraph of text, highlighting key milestones. Library/Method: HTML/Tailwind.
+        - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        .tab-btn {
+            transition: all 0.3s ease;
+        }
+        .tab-btn.active {
+            border-color: #2563eb;
+            color: #1e40af;
+            background-color: #dbeafe;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        /* Basic styling for math equations to ensure they stand out */
+        .math-block {
+            background-color: #e0f2fe; /* Light blue background */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            margin-bottom: 1rem;
+            text-align: center;
+            font-family: 'Times New Roman', serif; /* A more traditional font for math */
+            font-size: 1.1rem;
+            color: #003366; /* Darker blue for text */
+            overflow-x: auto; /* Allow horizontal scrolling for long equations */
+        }
+    </style>
+    <!-- Include MathJax for proper LaTeX rendering -->
+    <script type="text/javascript" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+    </script>
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            },
+            svg: {
+                fontCache: 'global'
+            }
+        };
+    </script>
+</head>
+<body class="text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-blue-900">UNIFAC Model Explorer</h1>
+            <p class="text-lg text-gray-600 mt-2">An interactive guide to the theory and application of the UNIFAC model.</p>
+        </header>
+
+        <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <!-- Tabs Navigation -->
+            <div class="border-b border-gray-200 mb-6">
+                <nav class="flex flex-wrap -mb-px" aria-label="Tabs">
+                    <button class="tab-btn active text-gray-500 hover:text-gray-700 hover:border-gray-300 w-full sm:w-auto text-center whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm" data-tab="theory">
+                        Theory
+                    </button>
+                    <button class="tab-btn text-gray-500 hover:text-gray-700 hover:border-gray-300 w-full sm:w-auto text-center whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm" data-tab="groups">
+                        Group Contributions
+                    </button>
+                    <button class="tab-btn text-gray-500 hover:text-gray-700 hover:border-gray-300 w-full sm:w-auto text-center whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm" data-tab="applications">
+                        Applications
+                    </button>
+                    <button class="tab-btn text-gray-500 hover:text-gray-700 hover:border-gray-300 w-full sm:w-auto text-center whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm" data-tab="history">
+                        History
+                    </button>
+                     <button class="tab-btn text-gray-500 hover:text-gray-700 hover:border-gray-300 w-full sm:w-auto text-center whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm" data-tab="references">
+                        References
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Tabs Content -->
+            <div>
+                <!-- Theory Tab -->
+                <div id="theory" class="tab-content active animate-fadeIn">
+                    <div class="prose max-w-none">
+                        <p>The UNIFAC (UNIQUAC Functional-group Activity Coefficients) model is a powerful semi-empirical system used in chemical engineering to predict activity coefficients in non-electrolyte, non-ideal liquid mixtures. Unlike models that require experimental data for every binary pair, UNIFAC leverages a "group-contribution" approach, estimating molecular properties based on the functional groups that constitute the molecules.</p>
+                        
+                        <h3>Core Concept: Activity Coefficients ($\gamma_i$)</h3>
+                        <p>Activity coefficients ($\gamma_i$) are fundamental in chemical thermodynamics for describing deviations from ideal behavior in real solutions. They are crucial for accurately calculating phase equilibria (e.g., vapor-liquid equilibrium, VLE; liquid-liquid equilibrium, LLE), which is essential for designing and optimizing separation processes.</p>
+                        <p>For an ideal solution, $\gamma_i = 1$, meaning the component behaves as if there are no interactions other than those between like molecules. In non-ideal solutions, $\gamma_i$ deviates from 1, indicating attractive ($\gamma_i < 1$) or repulsive ($\gamma_i > 1$) interactions between different types of molecules.</p>
+
+                        <h3>Two Contributions to the Activity Coefficient</h3>
+                        <p>The UNIFAC model elegantly decomposes the total activity coefficient for each component ($i$) into two distinct contributions, reflecting different aspects of molecular interaction:</p>
+                        
+                        <h4>1. Combinatorial Contribution ($\gamma_i^C$)</h4>
+                        <p>This term primarily accounts for the entropic effects arising from differences in molecular size and shape between the components in the mixture. It reflects the statistical probability of finding molecules in a certain arrangement due to their physical dimensions, rather than specific chemical interactions. It is calculated based on the volume ($R_k$) and surface area ($Q_k$) parameters of the functional groups that make up the molecules.</p>
+                        <div class="math-block">
+                            $$ \ln \gamma_i^C = \ln \frac{\Phi_i}{x_i} + \frac{z}{2} q_i \ln \frac{\theta_i}{\Phi_i} + L_i - \frac{\Phi_i}{x_i} \sum_j x_j L_j $$
+                            where $x_i$ is the mole fraction of component $i$, $\Phi_i$ is the segment fraction, $\theta_i$ is the area fraction, $z$ is the coordination number (usually 10), and $L_i$ is a structural parameter.
+                        </div>
+
+                        <h4>2. Residual Contribution ($\gamma_i^R$)</h4>
+                        <p>This term captures the energetic interactions between the different functional groups present in the mixture. It is the more chemically specific part, accounting for non-ideal interactions such as hydrogen bonding, dipole-dipole forces, and dispersion forces between the various functional groups. The residual contribution is derived from the concept of a "solution-of-groups," where the mixture is treated as a solution of functional groups rather than individual molecules.</p>
+                        <div class="math-block">
+                            $$ \ln \gamma_i^R = \sum_k v_k^{(i)} \left( \ln \Gamma_k - \ln \Gamma_k^{(i)} \right) $$
+                            where $v_k^{(i)}$ is the number of groups of type $k$ in molecule $i$, $\Gamma_k$ is the activity coefficient of group $k$ in the mixture, and $\Gamma_k^{(i)}$ is the activity coefficient of group $k$ in a pure component $i$. The group activity coefficients $\Gamma_k$ are calculated using group interaction parameters.
+                        </div>
+
+                        <p>The total activity coefficient for component $i$ is then given by the product of these two contributions:</p>
+                        <div class="math-block">
+                            $$ \gamma_i = \gamma_i^C \cdot \gamma_i^R $$
+                        </div>
+                        <p>This decomposition allows UNIFAC to predict properties for a vast number of mixtures by using a relatively small set of group-specific parameters, making it incredibly versatile for chemical process design where experimental data might be limited or unavailable.</p>
+                    </div>
+                </div>
+
+                <!-- Group Contributions Tab -->
+                <div id="groups" class="tab-content">
+                    <div class="prose max-w-none">
+                        <p>The power of UNIFAC lies in its group contribution approach. Instead of needing parameters for every single compound in a mixture, UNIFAC breaks down molecules into their constituent functional groups. The model then uses parameters associated with these groups and their binary interactions to predict mixture properties.</p>
+                        <h3>Main Groups and Subgroups</h3>
+                        <p>UNIFAC classifies functional groups into "main groups" and "subgroups." For example, an alkane main group might include subgroups like CH₃, CH₂, and CH. Each subgroup has defined volume ($R_k$) and surface area ($Q_k$) parameters, which are derived from Van der Waals volumes and surface areas.</p>
+                        <h3>Group Interaction Parameters</h3>
+                        <p>The residual contribution depends on "group interaction parameters" ($a_{mn}$ and $b_{mn}$) between pairs of main groups ($m$ and $n$). These parameters are typically temperature-dependent and are determined from experimental phase equilibrium data. The accuracy of UNIFAC predictions heavily relies on the completeness and quality of these interaction parameters.</p>
+                        <p>This approach allows UNIFAC to predict properties for a vast number of mixtures, even those for which no experimental data exists, as long as the functional groups and their interactions are defined within the model's parameter tables.</p>
+                    </div>
+                </div>
+                
+                <!-- Applications Tab -->
+                <div id="applications" class="tab-content">
+                     <div class="prose max-w-none">
+                        <p>The UNIFAC model is widely used in chemical engineering and related fields for its ability to predict thermodynamic properties of complex mixtures, especially when experimental data is scarce. Its group contribution nature makes it highly versatile. Click on each category to explore specific applications.</p>
+                    </div>
+                    <div id="accordion-container" class="mt-6 space-y-3">
+                        <!-- Accordion items will be generated here by JS -->
+                    </div>
+                </div>
+
+                <!-- History Tab -->
+                <div id="history" class="tab-content">
+                    <div class="prose max-w-none">
+                         <p>The UNIFAC model was a groundbreaking development in chemical thermodynamics, offering a practical way to predict mixture properties. This timeline highlights its key milestones.</p>
+                    </div>
+                    <div class="relative mt-8">
+                      <div class="border-r-2 border-blue-200 absolute h-full top-0" style="left: 15px"></div>
+                      <ul class="space-y-8">
+                        <li class="flex items-start">
+                          <div class="flex-shrink-0">
+                            <div class="flex items-center justify-center h-8 w-8 rounded-full bg-blue-500 text-white font-bold">1</div>
+                          </div>
+                          <div class="ml-6">
+                            <h4 class="text-lg font-bold text-blue-800">1975: Original UNIFAC Publication</h4>
+                            <p class="mt-1 text-gray-700">The UNIFAC model is first published by Fredenslund, Jones, and Prausnitz, building upon the UNIQUAC model and introducing the concept of functional group contributions to activity coefficients.</p>
+                          </div>
+                        </li>
+                        <li class="flex items-start">
+                          <div class="flex-shrink-0">
+                            <div class="flex items-center justify-center h-8 w-8 rounded-full bg-blue-500 text-white font-bold">2</div>
+                          </div>
+                          <div class="ml-6">
+                            <h4 class="text-lg font-bold text-blue-800">Late 1970s - 1980s: Revisions and Extensions</h4>
+                            <p class="mt-1 text-gray-700">Several revisions and extensions to the original UNIFAC model are published, refining parameters and expanding its applicability to more chemical systems.</p>
+                          </div>
+                        </li>
+                        <li class="flex items-start">
+                          <div class="flex-shrink-0">
+                            <div class="flex items-center justify-center h-8 w-8 rounded-full bg-blue-500 text-white font-bold">3</div>
+                          </div>
+                          <div class="ml-6">
+                            <h4 class="text-lg font-bold text-blue-800">1996: UNIFAC Consortium Founded</h4>
+                            <p class="mt-1 text-gray-700">The UNIFAC Consortium is established at the University of Oldenburg to support the continuous development, revision, and extension of UNIFAC and its variants (e.g., modified UNIFAC (Dortmund)).</p>
+                          </div>
+                        </li>
+                        <li class="flex items-start">
+                          <div class="flex-shrink-0">
+                            <div class="flex items-center justify-center h-8 w-8 rounded-full bg-blue-500 text-white font-bold">4</div>
+                          </div>
+                          <div class="ml-6">
+                            <h4 class="text-lg font-bold text-blue-800">Present Day: Integration and Advanced Variants</h4>
+                            <p class="mt-1 text-gray-700">UNIFAC is integrated into most commercial process simulators. Advanced variants like Modified UNIFAC 2.0 (incorporating machine learning) and UNIFAC-vdW-FV continue to expand its accuracy and range of applications, including ionic liquids and polymers.</p>
+                          </div>
+                        </li>
+                      </ul>
+                    </div>
+                </div>
+                
+                 <!-- References Tab -->
+                <div id="references" class="tab-content">
+                    <div class="prose max-w-none">
+                        <h3>Foundational Works</h3>
+                        <ul>
+                            <li>Fredenslund, A., Jones, R. L., & Prausnitz, J. M. (1975). Group-contribution estimation of activity coefficients in nonideal liquid mixtures. <em>AIChE Journal</em>, 21(6), 1086-1099.</li>
+                            <li>Fredenslund, A., Gmehling, J., & Rasmussen, P. (1977). <em>Vapor-Liquid Equilibria Using UNIFAC: A Group-Contribution Method</em>. Elsevier.</li>
+                        </ul>
+                        <h3>Selected Research Articles and Resources</h3>
+                        <ul>
+                            <li><a href="https://www.scm.com/doc/COSMO-RS/UNIFAC_theory.html" target="_blank" rel="noopener noreferrer">UNIFAC theory — COSMO-RS documentation - SCM</a> - Provides a detailed explanation of UNIFAC theory.</li>
+                            <li><a href="https://www.numberanalytics.com/blog/ultimate-guide-unifac-equation-thermodynamics" target="_blank" rel="noopener noreferrer">Mastering UNIFAC Equation in Thermodynamics - Number Analytics</a> - Practical insights into applying UNIFAC.</li>
+                            <li><a href="https://unifac.ddbst.com/" target="_blank" rel="noopener noreferrer">The UNIFAC Consortium</a> - Official site for the UNIFAC Consortium, providing information on ongoing developments and parameters.</li>
+                            <li><a href="https://pubs.acs.org/doi/abs/10.1021/acs.iecr.5c00077" target="_blank" rel="noopener noreferrer">Modified UNIFAC 2.0-A Group-Contribution Method Completed with Machine Learning</a> - Recent advancements in UNIFAC.</li>
+                            <li><a href="https://www.ddbst.com/published-parameters-unifac.html" target="_blank" rel="noopener noreferrer">Published Parameters UNIFAC - DDBST GmbH</a> - Access to published UNIFAC parameters.</li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Tab functionality
+            const tabs = document.querySelectorAll('.tab-btn');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    const target = document.getElementById(tab.dataset.tab);
+                    tabContents.forEach(tc => tc.classList.remove('active'));
+                    target.classList.add('active');
+                    
+                    // If the theory tab is activated, re-render MathJax
+                    if (tab.dataset.tab === 'theory') {
+                        if (typeof MathJax !== 'undefined') {
+                            MathJax.typesetPromise();
+                        }
+                    }
+                });
+            });
+
+            // Accordion functionality for Applications
+            const applicationsData = [
+                {
+                    title: "Separation Process Design and Optimization",
+                    content: [
+                        "Design and optimization of distillation columns.",
+                        "Prediction of phase equilibria for extraction processes.",
+                        "Modeling of absorption and stripping operations.",
+                        "Designing new separation processes for complex mixtures."
+                    ]
+                },
+                {
+                    title: "Thermodynamic Property Prediction",
+                    content: [
+                        "Prediction of activity coefficients for components in non-ideal mixtures.",
+                        "Estimation of excess Gibbs energies and enthalpies.",
+                        "Calculation of vapor-liquid (VLE) and liquid-liquid (LLE) equilibria.",
+                        "Predicting solubility in pure and mixed solvents."
+                    ]
+                },
+                {
+                    title: "Chemical Product Design",
+                    content: [
+                        "Formulation of new chemical products with desired solubility and phase behavior.",
+                        "Selecting appropriate solvents for reactions and formulations.",
+                        "Designing new solvents with specific properties."
+                    ]
+                },
+                {
+                    title: "Environmental and Safety Engineering",
+                    content: [
+                        "Predicting environmental partitioning of chemicals (e.g., between water and air).",
+                        "Assessing the flammability and toxicity of mixtures.",
+                        "Modeling the behavior of pollutants in various phases."
+                    ]
+                },
+                {
+                    title: "Advanced Materials and Specialized Applications",
+                    content: [
+                        "Modeling of ionic liquids and their mixtures.",
+                        "Predicting properties of polymer solutions and polymer-solvent interactions (via UNIFAC-vdW-FV).",
+                        "Applications in biochemical engineering for fermentation and bioseparation processes.",
+                        "Estimating surface tension and surface layer thickness in binary mixtures."
+                    ]
+                }
+            ];
+
+            const accordionContainer = document.getElementById('accordion-container');
+            applicationsData.forEach((item, index) => {
+                const accordionItem = document.createElement('div');
+                accordionItem.className = 'border border-gray-200 rounded-lg';
+                accordionItem.innerHTML = `
+                    <h2>
+                        <button type="button" class="flex items-center justify-between w-full p-5 font-medium text-left text-gray-600 hover:bg-gray-100" data-accordion-target="#accordion-body-${index}">
+                            <span>${item.title}</span>
+                            <svg data-accordion-icon class="w-6 h-6 shrink-0" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                        </button>
+                    </h2>
+                    <div id="accordion-body-${index}" class="hidden p-5 border-t border-gray-200">
+                        <ul class="list-disc pl-5 text-gray-600 space-y-2">
+                            ${item.content.map(li => `<li>${li}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+                accordionContainer.appendChild(accordionItem);
+            });
+
+            accordionContainer.addEventListener('click', (e) => {
+                const button = e.target.closest('button[data-accordion-target]');
+                if (button) {
+                    const targetId = button.getAttribute('data-accordion-target');
+                    const targetBody = document.querySelector(targetId);
+                    const icon = button.querySelector('svg');
+                    
+                    targetBody.classList.toggle('hidden');
+                    icon.classList.toggle('rotate-180');
+                }
+            });
+            
+            // Initial MathJax typesetting for the active tab
+            if (document.getElementById('theory').classList.contains('active')) {
+                if (typeof MathJax !== 'undefined') {
+                    MathJax.typesetPromise();
+                }
+            }
+        });
+    </script>
+
+</body>
+</html>
