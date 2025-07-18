@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNIFAC - Automatic Co-solvent Screening</title>
+    <!-- RDKit.js: Library for molecular manipulation -->
+    <script src="https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js"></script>
+    <!-- Chart.js: Library for creating charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+    <style>
+        /* Styles for a clean, modern, and functional interface */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f8; color: #333; display: flex; justify-content: center; align-items: flex-start; padding: 2rem; min-height: 100vh; margin: 0; }
+        .container { width: 100%; max-width: 900px; background-color: #ffffff; padding: 2.5rem; border-radius: 12px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08); }
+        h1, h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 0.5rem; margin-top: 0; }
+        h2 { margin-top: 2rem; font-size: 1.5rem; }
+        p { line-height: 1.6; color: #555; }
+        .module { margin-top: 2.5rem; border-top: 1px solid #e0e0e0; padding-top: 2rem; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { font-weight: 600; display: block; margin-bottom: 0.5rem; color: #34495e; }
+        .form-group input { width: 100%; padding: 12px; border: 1px solid #bdc3c7; border-radius: 6px; box-sizing: border-box; font-size: 1rem; transition: border-color 0.3s; }
+        .form-group input:focus { border-color: #3498db; outline: none; }
+        button { width: 100%; padding: 14px; background: linear-gradient(45deg, #3498db, #2980b9); color: white; border: none; border-radius: 6px; font-size: 1.2em; font-weight: bold; cursor: pointer; transition: background 0.3s ease, transform 0.1s ease; }
+        button:hover:not(:disabled) { background: linear-gradient(45deg, #2980b9, #3498db); }
+        button:active:not(:disabled) { transform: translateY(1px); }
+        button:disabled { background: #bdc3c7; cursor: not-allowed; }
+        .output-container { margin-top: 1.5rem; background-color: #ecf0f1; padding: 1rem 1.5rem; border-radius: 8px; border: 1px solid #dde4e6; min-height: 50px; }
+        .output-area { font-family: "Courier New", Courier, monospace; font-size: 0.95em; white-space: pre-wrap; word-break: break-all; }
+        .error { color: #c0392b; font-weight: bold; }
+        .success { color: #27ae60; font-weight: bold; }
+        .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 1.5rem; max-height: 250px; overflow-y: auto; border: 1px solid #eee; padding: 15px; border-radius: 6px;}
+        .checkbox-label { display: flex; align-items: center; cursor: pointer; padding: 5px; border-radius: 4px; transition: background-color 0.2s; }
+        .checkbox-label:hover { background-color: #f0f4f7; }
+        .checkbox-label input { margin-right: 10px; }
+        #results-container .module-content { display: flex; flex-direction: column; gap: 2rem; margin-top: 1rem; }
+        #matrix-container { width: 100%; overflow-x: auto; }
+        #chart-container { position: relative; height: 400px; width: 100%; }
+        .results-matrix { border-collapse: collapse; width: 100%; font-size: 0.9em; }
+        .results-matrix th, .results-matrix td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        .results-matrix th { background-color: #3498db; color: white; }
+        .results-matrix th.row-header { background-color: #2c3e50; min-width: 120px; }
+        .results-matrix td.clickable { cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+        .results-matrix td.clickable:hover { transform: scale(1.05); box-shadow: 0 0 15px rgba(0,0,0,0.2); z-index: 10; }
+        .results-matrix td.disabled { background-color: #f0f0f0; }
+        #progress-container { margin-top: 1rem; }
+        #progress-bar { width: 100%; height: 8px; background-color: #e0e0e0; border-radius: 4px; overflow: hidden; }
+        #progress-bar-inner { width: 0%; height: 100%; background-color: #3498db; transition: width 0.2s; }
+        #progress-text { text-align: center; margin-top: 0.5rem; color: #555; font-size: 0.9em; }
+        #chart-controls { text-align: center; margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+    <div id="loading-status" class="container"><h2>Loading Libraries...</h2><p>Please wait, the tool is initializing.</p></div>
+
+    <div class="container" id="main-container" style="display:none;">
+        <h1>UNIFAC - Automatic Co-solvent Screening</h1>
+        
+        <div id="module1">
+            <h2>Module 1: Solute Definition & Conditions</h2>
+            <div class="form-group">
+                <label for="smiles-input">Solute SMILES</label>
+                <input type="text" id="smiles-input" placeholder="e.g., c1ccccc1C(=O)O for benzoic acid" value="c1ccccc1C(=O)O">
+            </div>
+            <div class="form-grid">
+                <div class="form-group"><label for="temperature-input">Temperature (°C)</label><input type="number" id="temperature-input" value="25"></div>
+                <div class="form-group"><label for="tfus-input">Solute T<sub>fus</sub> (°C)</label><input type="number" id="tfus-input" value="122.4"></div>
+                <div class="form-group"><label for="dhfus-input">Solute ΔH<sub>fus</sub> (J/mol)</label><input type="number" id="dhfus-input" value="17300"></div>
+                <div class="form-group"><label for="points-input">Points per Diagram</label><input type="number" id="points-input" value="11" min="2" max="101"></div>
+            </div>
+            <button id="analyze-button">1. Analyze Solute</button>
+            <div class="output-container"><pre id="output-area-1" class="output-area">Ready for solute analysis.</pre></div>
+        </div>
+
+        <div id="screening-module" class="module" style="display:none;">
+            <h2>Module 2: Automatic Pair Screening</h2>
+            <p>Select the solvents to include. The tool will test every possible pair to find solubility peaks.</p>
+            <div class="form-group">
+                <label>Solvents to Include in Screening:</label>
+                <div id="solvent-checkbox-container" class="checkbox-grid"></div>
+            </div>
+            <button id="start-screening-button">2. Start Combinatorial Screening</button>
+            <div id="progress-container" style="display:none;">
+                <div id="progress-bar"><div id="progress-bar-inner"></div></div>
+                <div id="progress-text"></div>
+            </div>
+        </div>
+        
+        <div id="results-container" class="module" style="display:none;">
+            <h2>Module 3: Screening Results</h2>
+            <p>Matrix of maximum solubilities (mg/mL). Click a cell to view the detailed phase diagram.</p>
+            <div class="module-content">
+                <div id="matrix-container"></div>
+                <div id="chart-container">
+                    <div id="chart-controls">
+                        <label>Y-Axis Unit: </label>
+                        <input type="radio" id="unit-mgml" name="chart-unit" value="mgml" checked>
+                        <label for="unit-mgml">mg/mL</label>
+                        <input type="radio" id="unit-mol" name="chart-unit" value="mol">
+                        <label for="unit-mol">Mole Fraction (x)</label>
+                    </div>
+                    <canvas id="solubility-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            window.initRDKitModule().then(function (instance) {
+                document.getElementById('loading-status').style.display = 'none';
+                document.getElementById('main-container').style.display = 'block';
+                main(instance);
+            }).catch((e) => {
+                document.getElementById('loading-status').innerHTML = `<div class="container"><h2>CRITICAL ERROR</h2><p class="error">Could not load libraries.</p></div>`;
+                console.error("RDKit Error:", e);
+            });
+        });
+
+        function main(RDKIT_MODULE) {
+            // --- START CONSTANTS AND PARAMETERS ---
+            const UNIFAC_GROUP_PARAMS = { 1: { main_group_id: 1, name: 'CH3', R: 0.9011, Q: 0.848 }, 2: { main_group_id: 1, name: 'CH2', R: 0.6744, Q: 0.540 }, 3: { main_group_id: 1, name: '>C<', R: 0.2195, Q: 0.0 }, 4: { main_group_id: 1, name: 'CH', R: 0.4469, Q: 0.228 }, 15: { main_group_id: 5, name: 'OH', R: 1.0000, Q: 1.200 }, 16: { main_group_id: 6, name: '-O-', R: 0.6968, Q: 0.640 }, 17: { main_group_id: 7, name: 'CHO', R: 1.1859, Q: 1.024 }, 18: { main_group_id: 8, name: '>C=O', R: 0.7713, Q: 0.580 }, 19: { main_group_id: 11, name: '-COO-', R: 1.3466, Q: 1.188 }, 22: { main_group_id: 10, name: 'ACCH', R: 1.1859, Q: 0.764 }, 29: { main_group_id: 9, name: 'ACH', R: 0.5313, Q: 0.400 }, 34: { main_group_id: 12, name: 'ACOCH3', R: 2.0166, Q: 1.64 }, 37: { main_group_id: 13, name: '-NH2', R: 1.0350, Q: 0.948 }, 45: { main_group_id: 14, name: 'CONH2', R: 1.9866, Q: 1.784 }, 46: { main_group_id: 14, name: 'CONH', R: 2.4116, Q: 2.16 }, 47: { main_group_id: 14, name: '>N-CO-', R: 2.4116, Q: 1.72 }, 48: { main_group_id: 17, name: 'ACN', R: 2.0468, Q: 1.848 }, 50: { main_group_id: 15, name: 'DMF', R: 3.3533, Q: 2.916 }, 51: { main_group_id: 16, name: 'H2O', R: 0.9200, Q: 1.400 }, 52: { main_group_id: 19, name: 'CH2Cl', R: 1.4549, Q: 1.264 }, 55: { main_group_id: 21, name: 'ACCl', R: 1.1611, Q: 0.840 }, 59: { main_group_id: 23, name: 'DMSO', R: 2.918, Q: 2.588 }, 64: { main_group_id: 26, name: 'CF3', R: 1.5583, Q: 1.348 }, 65: { main_group_id: 26, name: 'CF2', R: 1.096, Q: 0.92 }, 80: { main_group_id: 20, name: 'COOH', R: 1.3013, Q: 1.392 } };
+            const UNIFAC_INTERACTION_PARAMS = { 1: { 5: 986.5, 6: 716.3, 7: 647.7, 8: 437.2, 9: 61.54, 10: 61.54, 11: 232.1, 12: 249.1, 13: 874.9, 14: 671.0, 15: 414.0, 16: 1318.0, 17: 904.6, 19: 168.1, 20: 699.5, 21: 61.54, 23: 135.0, 26: 494.3 }, 5: { 1: 156.4, 6: 258.9, 7: 29.8, 8: 132.8, 9: 636.1, 10: 156.4, 11: 35.8, 12: 122.3, 13: -9.28, 14: 153.3, 15: -152.0, 16: -229.2, 17: -15.08, 19: 259.9, 20: 199.0, 21: 636.1, 23: 162.7, 26: 279.7 }, 6: { 1: 114.1, 5: 14.88, 7: 122.0, 8: 112.9, 9: 21.9, 10: 21.9, 11: 60.6, 12: 178.2, 13: 312.4, 14: 379.8, 15: 147.2, 16: 254.8, 17: 208.5, 19: -10.1, 20: 387.9, 21: 21.9, 23: 20.3, 26: 184.8 }, 7: { 1: 292.1, 5: 23.9, 6: 48.0, 8: 72.0, 9: 147.4, 10: 147.4, 11: 15.3, 12: 0, 13: 201.2, 14: 0, 15: -18.04, 16: 300.0, 17: 247.1, 19: -110.2, 20: -140.2, 21: 147.4, 23: 0, 26: 0 }, 8: { 1: 26.76, 5: 23.23, 6: 48.01, 7: 72.0, 9: 147.4, 10: 26.76, 11: 15.3, 12: 89.0, 13: 201.2, 14: -50.0, 15: -18.04, 16: 291.4, 17: -2.23, 19: -110.2, 20: -140.2, 21: 147.4, 23: 164.7, 26: 172.9 }, 9: { 1: -11.12, 5: 140.6, 6: 82.5, 7: 25.0, 8: 25.0, 10: -11.12, 11: 89.0, 12: -11.12, 13: 49.7, 14: 15.9, 15: 39.4, 16: 808.7, 17: 156.2, 19: 78.4, 20: 260.6, 21: -33.4, 23: 131.0, 26: 9.75 }, 10: { 1: -54.7, 5: 479.5, 6: 82.5, 7: 25.0, 8: 25.0, 9: -54.7, 11: 89.0, 12: -11.12, 13: 49.7, 14: 15.9, 15: 39.4, 16: 1104.0, 17: 156.2, 19: 78.4, 20: 699.5, 21: -33.4, 23: 131.0, 26: 9.75 }, 11: { 1: 114.5, 5: 164.5, 6: 51.1, 7: 8.0, 8: 8.0, 9: 89.0, 10: 89.0, 12: 89.0, 13: 98.0, 14: -37.4, 15: 43.1, 16: 298.5, 17: 110.8, 19: -87.0, 20: 43.08, 21: 89.0, 23: 71.9, 26: 104.9 }, 12: { 1: 13.1, 5: 86.8, 6: -129.0, 7: 0, 8: 147.4, 9: 68.0, 10: 68.0, 11: 89.0, 13: 0, 14: 0, 15: 0, 16: 574.9, 17: 0, 19: 0, 20: 0, 21: 68.0, 23: 0, 26: 0 }, 13: { 1: 169.1, 5: 343.3, 6: 119.2, 7: 121.7, 8: 121.7, 9: 207.7, 10: 207.7, 11: 149.0, 12: 0, 14: 0, 15: 35.84, 16: 119.2, 17: -12.45, 19: 13.9, 20: 45.92, 21: 207.7, 23: 0, 26: 0 }, 14: { 1: 111.8, 5: 232.0, 6: 95.8, 7: 0, 8: 232.0, 9: 147.0, 10: 147.0, 11: 164.0, 12: 0, 13: 0, 15: 0, 16: -120.4, 17: 0, 19: 0, 20: 0, 21: 0, 23: 0, 26: 0 }, 15: { 1: 37.7, 5: 217.4, 6: 49.5, 7: 164.7, 8: 164.7, 9: 177.3, 10: 177.3, 11: 71.9, 12: 0, 13: 473.5, 14: 0, 16: 23.4, 17: 421.1, 19: 145.7, 20: -220.1, 21: 177.3, 23: 0, 26: 0 }, 16: { 1: 300.0, 5: 353.5, 6: 125.0, 7: 127.0, 8: -176.7, 9: 25.77, 10: 25.77, 11: 139.1, 12: 24.3, 13: 239.3, 14: 253.9, 15: 339.1, 17: 426.6, 19: 476.4, 20: 66.17, 21: 25.77, 23: -138.6, 26: 641.5 }, 17: { 1: 110.5, 5: 312.0, 6: 78.74, 7: 247.1, 8: 247.1, 9: 61.26, 10: 61.26, 11: 49.0, 12: 0, 13: 279.7, 15: 11.23, 16: -160.0, 19: -13.1, 20: -11.08, 21: 61.26, 23: 0, 26: 0 }, 19: { 1: -8.1, 5: -93.36, 6: 162.4, 7: 304.5, 8: 304.5, 9: -22.9, 10: -22.9, 11: 170.0, 12: 0, 13: 317.8, 15: 153.3, 16: 288.3, 17: 184.2, 20: 255.4, 21: -22.9, 23: 0, 26: 0 }, 20: { 1: 247.0, 5: -151.0, 6: 16.5, 7: 43.08, 8: 43.08, 9: 64.6, 10: 247.0, 11: 43.08, 12: 0, 13: 433.8, 15: -8.08, 16: -14.09, 17: 153.3, 19: 34.0, 21: 64.6, 23: 0, 26: 0 }, 21: { 1: -11.12, 5: 140.6, 6: 82.5, 7: 25.0, 8: 25.0, 10: -11.12, 11: 89.0, 12: 68.0, 13: 49.7, 15: 39.4, 16: 808.7, 17: 156.2, 19: 78.4, 20: 260.6, 23: 131.0, 26: 9.75 }, 23: { 1: 342.3, 5: 5.89, 6: 235.3, 7: 0, 8: 8.95, 9: -80.9, 10: -80.9, 11: 14.5, 12: 0, 13: 0, 15: 0, 16: 302.2, 17: 0, 19: 0, 20: 0, 21: 0, 26: 0 }, 26: { 1: 28.02, 5: 176.4, 6: 62.45, 7: 0, 8: 46.15, 9: 63.3, 10: 63.3, 11: 52.4, 12: 0, 13: 0, 15: 0, 16: 145.2, 17: 0, 19: 0, 20: 0, 21: 0, 23: 0 }};
+            const UNIFAC_SMARTS_DEFINITIONS = [ { subgroupId: 80, name: 'COOH', smarts: '[CX3](=O)[OX2H1]', core_indices: [0, 1, 2] }, { subgroupId: 19, name: '-COO-', smarts: '[#6]C(=O)O[#6]', core_indices: [1, 2, 3] }, { subgroupId: 47, name: '>N-CO-', smarts: '[#6]C(=O)N([#6])[#6]', core_indices: [1,2] }, { subgroupId: 46, name: 'CONH', smarts: '[#6][CX3](=O)[NX3H1][#6]', core_indices: [1, 2, 3] }, { subgroupId: 50, name: 'DMF', smarts: '[CH](=O)N(C)C', core_indices: [0, 1, 2, 3, 4] }, { subgroupId: 48, name: 'ACN', smarts: 'CC#N', core_indices: [0, 1, 2] }, { subgroupId: 45, name: 'CONH2', smarts: 'C(=O)N', core_indices: [0, 1, 2] }, { subgroupId: 17, name: 'CHO', smarts: '[CX3H1](=O)[#6]', core_indices: [0, 1] }, { subgroupId: 59, name: 'DMSO', smarts: 'CS(=O)C', core_indices: [0, 1, 2, 3] }, { subgroupId: 18, name: '>C=O', smarts: '[#6][CX3](=O)[#6]', core_indices: [1] }, { subgroupId: 15, name: 'OH', smarts: '[#6][OX2H1]', core_indices: [1] }, { subgroupId: 37, name: '-NH2', smarts: '[#6][NX3;H2]', core_indices: [1] }, { subgroupId: 16, name: '-O-', smarts: '[#6][OX2H0][#6]', core_indices: [1] }, { subgroupId: 34, name: 'ACOCH3', smarts: '[c]OC', core_indices: [0, 1, 2]}, { subgroupId: 55, name: 'ACCl', smarts: '[c]-[Cl]', core_indices: [1] }, { subgroupId: 22, name: 'ACCH', smarts: '[c][CH1]([#6])', core_indices: [1] }, { subgroupId: 64, name: 'CF3', smarts: '[C](F)(F)F', core_indices: [0, 1, 2, 3] }, { subgroupId: 65, name: 'CF2', smarts: '[C;H0](F)F', core_indices: [0, 1, 2] }, { subgroupId: 52, name: 'CH2Cl', smarts: '[C;!a]-[Cl]', core_indices: [1] }, { subgroupId: 51, name: 'H2O', smarts: '[OH2]', core_indices: [0] }, { subgroupId: 29, name: 'ACH', smarts: '[c]', core_indices: [0] }, { subgroupId: 4, name: 'CH', smarts: '[CH1]', core_indices: [0] }, { subgroupId: 2, name: 'CH2', smarts: '[CH2]', core_indices: [0] }, { subgroupId: 1, name: 'CH3', smarts: '[CH3]', core_indices: [0] }, { subgroupId: 3, name: '>C<', smarts: '[C;H0;X4]', core_indices: [0]} ];
+            const SOLVENT_LIBRARY = { water: { name: "Water", smiles: "O", density: 1.0 }, methanol: { name: "Methanol", smiles: "CO", density: 0.792 }, ethanol: { name: "Ethanol", smiles: "CCO", density: 0.789 }, isopropanol: { name: "Isopropanol (IPA)", smiles: "CC(C)O", density: 0.786 }, hexane: { name: "n-Hexane", smiles: "CCCCCC", density: 0.659 }, heptane: { name: "n-Heptane", smiles: "CCCCCCC", density: 0.684 }, benzene: { name: "Benzene", smiles: "c1ccccc1", density: 0.876 }, toluene: { name: "Toluene", smiles: "c1ccccc1C", density: 0.867 }, acetone: { name: "Acetone", smiles: "CC(=O)C", density: 0.791 }, ethyl_acetate: { name: "Ethyl Acetate", smiles: "CC(=O)OCC", density: 0.902 }, isopropyl_acetate: { name: "Isopropyl Acetate", smiles: "CC(=O)OC(C)C", density: 0.872 }, diethyl_ether: { name: "Diethyl Ether", smiles: "CCOCC", density: 0.713 }, mtbe: { name: "MTBE", smiles: "CC(C)(C)OC", density: 0.741 }, thf: { name: "Tetrahydrofuran (THF)", smiles: "C1CCOC1", density: 0.889 }, methf: { name: "2-Methyl-THF", smiles: "CC1CCCO1", density: 0.854 }, anisole: { name: "Anisole", smiles: "COc1ccccc1", density: 0.995 }, dcm: { name: "Dichloromethane (DCM)", smiles: "C(Cl)Cl", density: 1.33 }, chlorobenzene: { name: "Chlorobenzene", smiles: "c1ccccc1Cl", density: 1.11 }, acetonitrile: { name: "Acetonitrile (ACN)", smiles: "CC#N", density: 0.786 }, dmf: { name: "Dimethylformamide (DMF)", smiles: "C(=O)N(C)C", density: 0.944 }, dmac: { name: "Dimethylacetamide (DMAC)", smiles: "CC(=O)N(C)C", density: 0.942 }, dmso: { name: "Dimethyl Sulfoxide (DMSO)", smiles: "CS(=O)C", density: 1.100 } };
+            const R_GAS_CONSTANT = 8.31446;
+            const Z_COORD_NUMBER = 10;
+            // --- END CONSTANTS AND PARAMETERS ---
+
+            let soluteData = {};
+            let solventDataCache = {};
+            let solubilityChart = null;
+            let fullResults = [];
+            let currentChartData = null;
+
+            // --- UI ELEMENTS ---
+            const { analyzeButton, screeningButton, smilesInput, outputArea1, screeningModule, solventCheckboxContainer, progressContainer, progressBarInner, progressText, resultsContainer, matrixContainer, chartContainer, chartControls } = (() => ({
+                analyzeButton: document.getElementById('analyze-button'),
+                screeningButton: document.getElementById('start-screening-button'),
+                smilesInput: document.getElementById('smiles-input'),
+                outputArea1: document.getElementById('output-area-1'),
+                screeningModule: document.getElementById('screening-module'),
+                solventCheckboxContainer: document.getElementById('solvent-checkbox-container'),
+                progressContainer: document.getElementById('progress-container'),
+                progressBarInner: document.getElementById('progress-bar-inner'),
+                progressText: document.getElementById('progress-text'),
+                resultsContainer: document.getElementById('results-container'),
+                matrixContainer: document.getElementById('matrix-container'),
+                chartContainer: document.getElementById('chart-container'),
+                chartControls: document.getElementById('chart-controls')
+            }))();
+
+            // --- SETUP AND UTILITY FUNCTIONS ---
+            function populateSolventCheckboxes() {
+                solventCheckboxContainer.innerHTML = '';
+                for (const key in SOLVENT_LIBRARY) {
+                    const solvent = SOLVENT_LIBRARY[key];
+                    const checkboxId = `solvent-${key}`;
+                    const label = document.createElement('label');
+                    label.className = 'checkbox-label';
+                    label.htmlFor = checkboxId;
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.id = checkboxId;
+                    checkbox.value = key;
+                    checkbox.checked = ['water', 'ethanol', 'acetone', 'acetonitrile', 'dmf', 'dmso'].includes(key);
+                    label.appendChild(checkbox);
+                    label.appendChild(document.createTextNode(` ${solvent.name}`));
+                    solventCheckboxContainer.appendChild(label);
+                }
+            }
+
+            function showMessage(area, message, type = 'info') {
+                area.innerHTML = `<span class="${type}">${message}</span>`;
+            }
+
+            // --- CORE CALCULATION FUNCTIONS ---
+            function getMoleculeData(smiles) {
+                if (solventDataCache[smiles]) return solventDataCache[smiles];
+                let mol;
+                try {
+                    mol = RDKIT_MODULE.get_mol(smiles);
+                    if (!mol || !mol.is_valid()) throw new Error(`Invalid SMILES: ${smiles}`);
+                } catch (e) { throw new Error(`RDKit Error: "${smiles}"`); }
+
+                const groupCounts = {};
+                const usedAtoms = new Set();
+                for (const group of UNIFAC_SMARTS_DEFINITIONS) {
+                    let query;
+                    try {
+                        query = RDKIT_MODULE.get_qmol(group.smarts);
+                        const matchesStr = mol.get_substruct_matches(query);
+                        if (matchesStr && matchesStr !== "[]") {
+                            const parsedResult = JSON.parse(matchesStr);
+                            const matches = Array.isArray(parsedResult) ? parsedResult : [parsedResult];
+                            for (const match of matches) {
+                                if (!match || !match.atoms) continue;
+                                const coreAtomIndices = group.core_indices.map(i => match.atoms[i]);
+                                if (coreAtomIndices.some(atomIdx => usedAtoms.has(atomIdx))) continue;
+                                groupCounts[group.subgroupId] = (groupCounts[group.subgroupId] || 0) + 1;
+                                coreAtomIndices.forEach(atomIdx => usedAtoms.add(atomIdx));
+                            }
+                        }
+                    } finally { if (query) query.delete(); }
+                }
+                
+                const mw = JSON.parse(mol.get_descriptors()).exactmw;
+                mol.delete();
+                if (Object.keys(groupCounts).length === 0) throw new Error(`No UNIFAC groups found for: "${smiles}".`);
+                
+                let r = 0, q = 0;
+                for (const groupId in groupCounts) {
+                    r += groupCounts[groupId] * UNIFAC_GROUP_PARAMS[groupId].R;
+                    q += groupCounts[groupId] * UNIFAC_GROUP_PARAMS[groupId].Q;
+                }
+                const data = { groups: groupCounts, r, q, mw };
+                solventDataCache[smiles] = data;
+                return data;
+            }
+
+            function calculateLnGamma(solute, solventA, solventB, x_A_in_solvent, tempK) {
+                const x = [0, x_A_in_solvent, 1 - x_A_in_solvent];
+                const components = [solute, solventA, solventB];
+                const r = components.map(c => c.r);
+                const q = components.map(c => c.q);
+
+                const r_solv_mix = x[1]*r[1] + x[2]*r[2];
+                const q_solv_mix = x[1]*q[1] + x[2]*q[2];
+                if (r_solv_mix === 0 || q_solv_mix === 0) return 0;
+                const lnGammaC_inf = Math.log(r[0] / r_solv_mix) + 1 - (r[0] / r_solv_mix) + (Z_COORD_NUMBER / 2) * q[0] * (Math.log(q[0] * r_solv_mix / (q_solv_mix * r[0])) - 1 + (q_solv_mix * r[0]) / (q[0] * r_solv_mix));
+
+                const allGroups = {};
+                components.forEach((c, i) => {
+                    for (const k in c.groups) {
+                        if (!allGroups[k]) {
+                            allGroups[k] = { count: [0, 0, 0], params: UNIFAC_GROUP_PARAMS[k] };
+                        }
+                        allGroups[k].count[i] = c.groups[k];
+                    }
+                });
+
+                let totalGroupsInMix = 0;
+                for (let i = 1; i < 3; ++i) {
+                    for(const k in components[i].groups) {
+                        totalGroupsInMix += x[i] * components[i].groups[k];
+                    }
+                }
+                if (totalGroupsInMix === 0) return lnGammaC_inf;
+
+                const X_k_mix = {};
+                let sum_Xk_Qk_mix = 0;
+                for (const k in allGroups) {
+                    let num = x[1] * (allGroups[k].count[1] || 0) + x[2] * (allGroups[k].count[2] || 0);
+                    X_k_mix[k] = num / totalGroupsInMix;
+                    sum_Xk_Qk_mix += X_k_mix[k] * allGroups[k].params.Q;
+                }
+                if (sum_Xk_Qk_mix === 0) return lnGammaC_inf;
+
+                const Theta_k_mix = {};
+                for (const k in allGroups) {
+                    Theta_k_mix[k] = X_k_mix[k] * allGroups[k].params.Q / sum_Xk_Qk_mix;
+                }
+                
+                const Psi = {};
+                for (const m in allGroups) {
+                    Psi[m] = {};
+                    for (const n in allGroups) {
+                        const main_m = allGroups[m].params.main_group_id;
+                        const main_n = allGroups[n].params.main_group_id;
+                        const a_mn = (UNIFAC_INTERACTION_PARAMS[main_m] && UNIFAC_INTERACTION_PARAMS[main_m][main_n]) || 0;
+                        Psi[m][n] = Math.exp(-a_mn / tempK);
+                    }
+                }
+
+                function getLnGammaGroup(group_k_id, X_k, Theta_k, localPsi) {
+                    const Q_k = allGroups[group_k_id].params.Q;
+                    let term1 = 0;
+                    for (const m in X_k) { term1 += Theta_k[m] * localPsi[m][group_k_id]; }
+                    let term2 = 0;
+                    for (const m in X_k) {
+                        let num = Theta_k[m] * localPsi[group_k_id][m];
+                        let den = 0;
+                        for (const n in X_k) { den += Theta_k[n] * localPsi[n][m]; }
+                        term2 += num / (den || 1);
+                    }
+                    return Q_k * (1 - Math.log(term1 || 1) - term2);
+                }
+                
+                const lnGamma_k_solute_pure = {};
+                if (Object.keys(solute.groups).length > 0) {
+                    const X_k_solute = {}, Theta_k_solute = {};
+                    let totalGroupsInSolute = 0, sum_Xk_Qk_solute = 0;
+                    for(const k in solute.groups) totalGroupsInSolute += solute.groups[k];
+                    if (totalGroupsInSolute > 0) {
+                        for(const k in solute.groups) {
+                            X_k_solute[k] = solute.groups[k] / totalGroupsInSolute;
+                            sum_Xk_Qk_solute += X_k_solute[k] * UNIFAC_GROUP_PARAMS[k].Q;
+                        }
+                        if (sum_Xk_Qk_solute > 0) {
+                            for(const k in solute.groups) Theta_k_solute[k] = X_k_solute[k] * UNIFAC_GROUP_PARAMS[k].Q / sum_Xk_Qk_solute;
+                            for (const k in solute.groups) {
+                                lnGamma_k_solute_pure[k] = getLnGammaGroup(k, X_k_solute, Theta_k_solute, Psi);
+                            }
+                        }
+                    }
+                }
+
+                let lnGammaR = 0;
+                for (const k in solute.groups) {
+                    const lnGamma_k_mix = getLnGammaGroup(k, X_k_mix, Theta_k_mix, Psi);
+                    lnGammaR += solute.groups[k] * (lnGamma_k_mix - (lnGamma_k_solute_pure[k] || 0));
+                }
+                
+                return lnGammaC_inf + lnGammaR;
+            }
+            
+            function convertMolFractionToMgMl(x_solute, mw_solute, x_A_in_solvent, solventA, solventB) {
+                if (!solventA.mw || !solventB.mw || !solventA.density || !solventB.density) {
+                    throw new Error("Molecular weight or density data missing for solvents.");
+                }
+                const V_solvent_mixture = x_A_in_solvent * (solventA.mw / solventA.density) + (1 - x_A_in_solvent) * (solventB.mw / solventB.density);
+                if (V_solvent_mixture === 0) return 0;
+                const solubility_mg_ml = 1000 * (x_solute * mw_solute) / V_solvent_mixture;
+                return solubility_mg_ml;
+            }
+
+            // --- EVENT HANDLERS AND SCREENING LOGIC ---
+            function handleAnalyzeSolute() {
+                const smiles = smilesInput.value.trim();
+                if (!smiles) { showMessage(outputArea1, "Please enter a valid SMILES string.", "error"); return; }
+                analyzeButton.disabled = true;
+                analyzeButton.textContent = "Analyzing...";
+                outputArea1.innerHTML = "Analyzing...";
+                setTimeout(() => {
+                    try {
+                        soluteData = getMoleculeData(smiles);
+                        let outputText = `Solute Analysis Complete.\n`;
+                        outputText += `  - Molecular Weight: ${soluteData.mw.toFixed(3)} g/mol\n`;
+                        outputText += `  - Parameter r: ${soluteData.r.toFixed(4)}\n  - Parameter q: ${soluteData.q.toFixed(4)}\n\n`;
+                        outputText += `UNIFAC Groups Identified:\n`;
+                        for (const groupId in soluteData.groups) {
+                            outputText += `  - ${UNIFAC_GROUP_PARAMS[groupId].name} (ID: ${groupId}): ${soluteData.groups[groupId]}\n`;
+                        }
+                        showMessage(outputArea1, outputText, "success");
+                        screeningModule.style.display = 'block';
+                    } catch (error) {
+                        showMessage(outputArea1, `ERROR: ${error.message}`, "error");
+                        screeningModule.style.display = 'none';
+                        console.error(error);
+                    } finally {
+                        analyzeButton.disabled = false;
+                        analyzeButton.textContent = "1. Analyze Solute";
+                    }
+                }, 100);
+            }
+
+            async function handleStartScreening() {
+                const tempC = parseFloat(document.getElementById('temperature-input').value);
+                const TfusC = parseFloat(document.getElementById('tfus-input').value);
+                const dHfus = parseFloat(document.getElementById('dhfus-input').value);
+                const numPoints = parseInt(document.getElementById('points-input').value);
+                const selectedSolventKeys = Array.from(solventCheckboxContainer.querySelectorAll('input:checked')).map(cb => cb.value);
+
+                if (isNaN(tempC) || isNaN(TfusC) || isNaN(dHfus) || isNaN(numPoints)) {
+                    alert("Please check that all numeric fields are valid."); return;
+                }
+                if (selectedSolventKeys.length < 2) {
+                    alert("Please select at least two solvents for screening."); return;
+                }
+
+                screeningButton.disabled = true;
+                screeningButton.textContent = "Screening in progress...";
+                progressContainer.style.display = 'block';
+                resultsContainer.style.display = 'none';
+                if(solubilityChart) solubilityChart.destroy();
+                
+                const pairs = [];
+                for (let i = 0; i < selectedSolventKeys.length; i++) {
+                    for (let j = i + 1; j < selectedSolventKeys.length; j++) {
+                        pairs.push([selectedSolventKeys[i], selectedSolventKeys[j]]);
+                    }
+                }
+
+                fullResults = [];
+                let pairsCompleted = 0;
+
+                for (const pair of pairs) {
+                    const [keyA, keyB] = pair;
+                    try {
+                        const solventAData = getMoleculeData(SOLVENT_LIBRARY[keyA].smiles);
+                        solventAData.density = SOLVENT_LIBRARY[keyA].density;
+                        const solventBData = getMoleculeData(SOLVENT_LIBRARY[keyB].smiles);
+                        solventBData.density = SOLVENT_LIBRARY[keyB].density;
+
+                        const diagramData = [];
+                        let peak = { solubility_x: -1, solubility_mgml: -1, comp: -1 };
+                        
+                        const tempK = tempC + 273.15;
+                        const TfusK = TfusC + 273.15;
+                        const ln_x_ideal = (dHfus / R_GAS_CONSTANT) * ((1 / TfusK) - (1 / tempK));
+                        
+                        for (let i = 0; i < numPoints; i++) {
+                            const x_A = i / (numPoints - 1);
+                            const lnGamma = calculateLnGamma(soluteData, solventAData, solventBData, x_A, tempK);
+                            const x_real = Math.exp(ln_x_ideal - lnGamma);
+                            const mgml = convertMolFractionToMgMl(x_real, soluteData.mw, x_A, solventAData, solventBData);
+
+                            diagramData.push({ comp: x_A * 100, solubility_x: x_real, solubility_mgml: mgml });
+                            if (mgml > peak.solubility_mgml) {
+                                peak = { solubility_x: x_real, solubility_mgml: mgml, comp: x_A * 100 };
+                            }
+                        }
+                        fullResults.push({ keyA, keyB, peak, diagramData });
+
+                    } catch (e) {
+                        console.warn(`Error calculating pair ${keyA}-${keyB}:`, e.message);
+                    }
+                    
+                    pairsCompleted++;
+                    const progress = (pairsCompleted / pairs.length) * 100;
+                    progressBarInner.style.width = `${progress}%`;
+                    progressText.textContent = `Calculating... Pair ${pairsCompleted} of ${pairs.length} (${SOLVENT_LIBRARY[keyA].name} / ${SOLVENT_LIBRARY[keyB].name})`;
+                    await new Promise(r => setTimeout(r, 10));
+                }
+
+                displayResultsMatrix(fullResults, selectedSolventKeys);
+                
+                screeningButton.disabled = false;
+                screeningButton.textContent = "2. Start Combinatorial Screening";
+                progressContainer.style.display = 'none';
+                resultsContainer.style.display = 'block';
+            }
+            
+            // --- RESULTS VISUALIZATION FUNCTIONS ---
+            function displayResultsMatrix(results, solventKeys) {
+                const resultsMap = new Map();
+                results.forEach(res => {
+                    resultsMap.set(`${res.keyA}-${res.keyB}`, res);
+                    resultsMap.set(`${res.keyB}-${res.keyA}`, res);
+                });
+
+                const solubilities = results.map(r => r.peak.solubility_mgml).filter(s => s > 0);
+                const minSol = Math.log(Math.max(1e-9, Math.min(...solubilities)));
+                const maxSol = Math.log(Math.max(...solubilities));
+
+                function getColorForValue(value) {
+                    if (value <= 0) return 'hsl(0, 0%, 90%)';
+                    const logValue = Math.log(Math.max(1e-9, value));
+                    const ratio = (logValue - minSol) / (maxSol - minSol) || 0;
+                    const hue = (ratio * 120).toFixed(0);
+                    return `hsl(${hue}, 80%, 75%)`;
+                }
+
+                let tableHTML = `<table class="results-matrix"><thead><tr><th>&nbsp;</th>`;
+                solventKeys.forEach(key => {
+                    tableHTML += `<th>${SOLVENT_LIBRARY[key].name}</th>`;
+                });
+                tableHTML += `</tr></thead><tbody>`;
+
+                solventKeys.forEach(keyA => {
+                    tableHTML += `<tr><th class="row-header">${SOLVENT_LIBRARY[keyA].name}</th>`;
+                    solventKeys.forEach(keyB => {
+                        if (keyA === keyB) {
+                            tableHTML += `<td class="disabled"></td>`;
+                        } else {
+                            const res = resultsMap.get(`${keyA}-${keyB}`);
+                            if (res) {
+                                const color = getColorForValue(res.peak.solubility_mgml);
+                                tableHTML += `<td class="clickable" style="background-color: ${color}" data-key-a="${res.keyA}" data-key-b="${res.keyB}">
+                                    ${res.peak.solubility_mgml.toFixed(1)}
+                                </td>`;
+                            } else {
+                                tableHTML += `<td>-</td>`;
+                            }
+                        }
+                    });
+                    tableHTML += `</tr>`;
+                });
+                tableHTML += `</tbody></table>`;
+                matrixContainer.innerHTML = tableHTML;
+                
+                matrixContainer.querySelector('tbody').addEventListener('click', (event) => {
+                    const cell = event.target.closest('td.clickable');
+                    if (!cell) return;
+                    const keyA = cell.dataset.keyA;
+                    const keyB = cell.dataset.keyB;
+                    const resultData = resultsMap.get(`${keyA}-${keyB}`);
+                    if (resultData) {
+                        currentChartData = resultData;
+                        displayDetailedChart();
+                    }
+                });
+
+                const bestPair = [...results].sort((a,b) => b.peak.solubility_mgml - a.peak.solubility_mgml)[0];
+                if (bestPair) {
+                    currentChartData = bestPair;
+                    displayDetailedChart();
+                }
+            }
+
+            function displayDetailedChart() {
+                if (!currentChartData) return;
+                const { keyA, keyB, diagramData, peak } = currentChartData;
+                const solventAName = SOLVENT_LIBRARY[keyA].name;
+                const solventBName = SOLVENT_LIBRARY[keyB].name;
+                const displayUnit = document.querySelector('input[name="chart-unit"]:checked').value;
+                
+                const data = (displayUnit === 'mgml') ? diagramData.map(r => r.solubility_mgml) : diagramData.map(r => r.solubility_x);
+                const peakValue = (displayUnit === 'mgml') ? peak.solubility_mgml.toFixed(2) + ' mg/mL' : peak.solubility_x.toExponential(4);
+                const yAxisLabel = (displayUnit === 'mgml') ? 'Solubility (mg/mL)' : 'Solubility (mole fraction)';
+
+                const ctx = document.getElementById('solubility-chart').getContext('2d');
+                if (solubilityChart) { solubilityChart.destroy(); }
+                solubilityChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: diagramData.map(r => r.comp.toFixed(1)),
+                        datasets: [{
+                            label: `Solubility in ${solventAName}/${solventBName}`,
+                            data: data,
+                            borderColor: '#3498db',
+                            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                            fill: true,
+                            tension: 0.2
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            title: { display: true, text: `Diagram: ${solventAName} / ${solventBName}` },
+                            subtitle: { display: true, text: `Solubility peak: ${peakValue} at ${peak.comp.toFixed(1)}% of ${solventAName}`},
+                            tooltip: { callbacks: { label: (c) => `Solubility: ${(displayUnit === 'mgml') ? c.parsed.y.toFixed(2) : c.parsed.y.toExponential(4)}` } }
+                        },
+                        scales: {
+                            x: { title: { display: true, text: `% ${solventAName} in mixture` } },
+                            y: { title: { display: true, text: yAxisLabel }, type: 'logarithmic' }
+                        }
+                    }
+                });
+            }
+
+            // --- INITIALIZATION ---
+            populateSolventCheckboxes();
+            analyzeButton.addEventListener('click', handleAnalyzeSolute);
+            screeningButton.addEventListener('click', handleStartScreening);
+            chartControls.addEventListener('change', displayDetailedChart);
+        }
+    </script>
+</body>
+</html>
