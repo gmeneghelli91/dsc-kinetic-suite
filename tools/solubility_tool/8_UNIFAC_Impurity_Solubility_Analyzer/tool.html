@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNIFAC - Comparative Two-Solute Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/@rdkit/rdkit/dist/RDKit_minimal.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f8; color: #333; display: flex; justify-content: center; align-items: flex-start; padding: 2rem; min-height: 100vh; margin: 0; }
+        .container { width: 100%; max-width: 800px; background-color: #ffffff; padding: 2.5rem; border-radius: 12px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08); }
+        h1, h2, h3 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 0.5rem; margin-top: 0; }
+        h2 { margin-top: 2rem; font-size: 1.5rem; }
+        h3 { font-size: 1.2rem; border-bottom-style: dashed; border-bottom-width: 1px; margin-top: 1.5rem; }
+        p { line-height: 1.6; color: #555; }
+        .module { margin-top: 2.5rem; border-top: 1px solid #e0e0e0; padding-top: 2rem; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { font-weight: 600; display: block; margin-bottom: 0.5rem; color: #34495e; }
+        .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid #bdc3c7; border-radius: 6px; box-sizing: border-box; font-size: 1rem; transition: border-color 0.3s; }
+        .form-group input:focus, .form-group select:focus { border-color: #3498db; outline: none; }
+        button { width: 100%; padding: 14px; background: linear-gradient(45deg, #3498db, #2980b9); color: white; border: none; border-radius: 6px; font-size: 1.2em; font-weight: bold; cursor: pointer; transition: background 0.3s ease; }
+        button:hover:not(:disabled) { background: linear-gradient(45deg, #2980b9, #3498db); }
+        button:disabled { background: #bdc3c7; cursor: not-allowed; }
+        .output-container { margin-top: 1.5rem; background-color: #ecf0f1; padding: 1rem 1.5rem; border-radius: 8px; border: 1px solid #dde4e6; min-height: 50px; }
+        .output-area { font-family: "Courier New", Courier, monospace; font-size: 1em; white-space: pre-wrap; }
+        .error { color: #c0392b; font-weight: bold; }
+        .success { color: #27ae60; font-weight: bold; }
+        .final-result { font-weight: bold; color: #8e44ad; }
+        .chart-container { margin-top: 1.5rem; position: relative; height: 450px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Comparative UNIFAC Tool</h1>
+        
+        <div id="module1">
+            <h2>Module 1: Compound Definition</h2>
+            <div class="form-grid">
+                <div>
+                    <h3>Compound 1 (e.g., Product)</h3>
+                    <div class="form-group"><label for="name1-input">Compound 1 Name</label><input type="text" id="name1-input" value="Product"></div>
+                    <div class="form-group"><label for="smiles1-input">Compound 1 SMILES</label><input type="text" id="smiles1-input" value="c1ccccc1C(=O)O"></div>
+                    <div class="form-group"><label for="tfus1-input">T<sub>fus</sub> (°C)</label><input type="number" id="tfus1-input" value="122.4"></div>
+                    <div class="form-group"><label for="dhfus1-input">ΔH<sub>fus</sub> (J/mol)</label><input type="number" id="dhfus1-input" value="17300"></div>
+                </div>
+                <div>
+                    <h3>Compound 2 (e.g., Impurity)</h3>
+                    <div class="form-group"><label for="name2-input">Compound 2 Name</label><input type="text" id="name2-input" value="Impurity"></div>
+                    <div class="form-group"><label for="smiles2-input">Compound 2 SMILES</label><input type="text" id="smiles2-input" value="c1ccc(c(c1)C(=O)O)O"></div>
+                    <div class="form-group"><label for="tfus2-input">T<sub>fus</sub> (°C)</label><input type="number" id="tfus2-input" value="205"></div>
+                    <div class="form-group"><label for="dhfus2-input">ΔH<sub>fus</sub> (J/mol)</label><input type="number" id="dhfus2-input" value="28900"></div>
+                </div>
+            </div>
+            <button id="analyze-button" disabled>Loading Libraries...</button>
+            <div class="output-container">
+                <pre id="output-area-1" class="output-area">...</pre>
+            </div>
+        </div>
+
+        <div id="module2" class="module" style="display:none;">
+            <h2>Module 2: Co-solvent Calculation</h2>
+            <p>Select a pair of solvents to calculate and compare the solubility of the two compounds. Select the same solvent in both fields for a single-solvent analysis.</p>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="solvent-a-selector">Solvent A</label>
+                    <select id="solvent-a-selector"></select>
+                </div>
+                <div class="form-group">
+                    <label for="solvent-b-selector">Solvent B</label>
+                    <select id="solvent-b-selector"></select>
+                </div>
+            </div>
+             <div class="form-group">
+                <label for="temperature-input">Temperature (°C)</label>
+                <input type="number" id="temperature-input" value="25">
+            </div>
+            <button id="calculate-curve-button">2. Calculate Phase Diagram</button>
+            <div class="output-container chart-container" style="display:none;" id="chart-area">
+                <canvas id="solubility-chart"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- DATABASE AND CONSTANTS ---
+        const UNIFAC_GROUP_PARAMS = { 1: { main_group_id: 1, name: 'CH3', R: 0.9011, Q: 0.848 }, 2: { main_group_id: 1, name: 'CH2', R: 0.6744, Q: 0.540 }, 3: { main_group_id: 1, name: '>C<', R: 0.2195, Q: 0.0 }, 4: { main_group_id: 1, name: 'CH', R: 0.4469, Q: 0.228 }, 15: { main_group_id: 5, name: 'OH', R: 1.0000, Q: 1.200 }, 16: { main_group_id: 6, name: '-O-', R: 0.6968, Q: 0.640 }, 17: { main_group_id: 7, name: 'CHO', R: 1.1859, Q: 1.024 }, 18: { main_group_id: 8, name: '>C=O', R: 0.7713, Q: 0.580 }, 19: { main_group_id: 11, name: '-COO-', R: 1.3466, Q: 1.188 }, 22: { main_group_id: 10, name: 'ACCH', R: 1.1859, Q: 0.764 }, 29: { main_group_id: 9, name: 'ACH', R: 0.5313, Q: 0.400 }, 34: { main_group_id: 12, name: 'ACOCH3', R: 2.0166, Q: 1.64 }, 37: { main_group_id: 13, name: '-NH2', R: 1.0350, Q: 0.948 }, 45: { main_group_id: 14, name: 'CONH2', R: 1.9866, Q: 1.784 }, 46: { main_group_id: 14, name: 'CONH', R: 2.4116, Q: 2.16 }, 47: { main_group_id: 14, name: '>N-CO-', R: 2.4116, Q: 1.72 }, 48: { main_group_id: 17, name: 'ACN', R: 2.0468, Q: 1.848 }, 50: { main_group_id: 15, name: 'DMF', R: 3.3533, Q: 2.916 }, 51: { main_group_id: 16, name: 'H2O', R: 0.9200, Q: 1.400 }, 52: { main_group_id: 19, name: 'CH2Cl', R: 1.4549, Q: 1.264 }, 55: { main_group_id: 21, name: 'ACCl', R: 1.1611, Q: 0.840 }, 59: { main_group_id: 23, name: 'DMSO', R: 2.918, Q: 2.588 }, 64: { main_group_id: 26, name: 'CF3', R: 1.5583, Q: 1.348 }, 65: { main_group_id: 26, name: 'CF2', R: 1.096, Q: 0.92 }, 80: { main_group_id: 20, name: 'COOH', R: 1.3013, Q: 1.392 } };
+        const UNIFAC_INTERACTION_PARAMS = { 1: { 5: 986.5, 6: 716.3, 7: 647.7, 8: 437.2, 9: 61.54, 10: 61.54, 11: 232.1, 12: 249.1, 13: 874.9, 14: 671.0, 15: 414.0, 16: 1318.0, 17: 904.6, 19: 168.1, 20: 699.5, 21: 61.54, 23: 135.0, 26: 494.3 }, 5: { 1: 156.4, 6: 258.9, 7: 29.8, 8: 132.8, 9: 636.1, 10: 156.4, 11: 35.8, 12: 122.3, 13: -9.28, 14: 153.3, 15: -152.0, 16: -229.2, 17: -15.08, 19: 259.9, 20: 199.0, 21: 636.1, 23: 162.7, 26: 279.7 }, 6: { 1: 114.1, 5: 14.88, 7: 122.0, 8: 112.9, 9: 21.9, 10: 21.9, 11: 60.6, 12: 178.2, 13: 312.4, 14: 379.8, 15: 147.2, 16: 254.8, 17: 208.5, 19: -10.1, 20: 387.9, 21: 21.9, 23: 20.3, 26: 184.8 }, 7: { 1: 292.1, 5: 23.9, 6: 48.0, 8: 72.0, 9: 147.4, 10: 147.4, 11: 15.3, 12: 0, 13: 201.2, 14: 0, 15: -18.04, 16: 300.0, 17: 247.1, 19: -110.2, 20: -140.2, 21: 147.4, 23: 0, 26: 0 }, 8: { 1: 26.76, 5: 23.23, 6: 48.01, 7: 72.0, 9: 147.4, 10: 26.76, 11: 15.3, 12: 89.0, 13: 201.2, 14: -50.0, 15: -18.04, 16: 291.4, 17: -2.23, 19: -110.2, 20: -140.2, 21: 147.4, 23: 164.7, 26: 172.9 }, 9: { 1: -11.12, 5: 140.6, 6: 82.5, 7: 25.0, 8: 25.0, 10: -11.12, 11: 89.0, 12: -11.12, 13: 49.7, 14: 15.9, 15: 39.4, 16: 808.7, 17: 156.2, 19: 78.4, 20: 260.6, 21: -33.4, 23: 131.0, 26: 9.75 }, 10: { 1: -54.7, 5: 479.5, 6: 82.5, 7: 25.0, 8: 25.0, 9: -54.7, 11: 89.0, 12: -11.12, 13: 49.7, 14: 15.9, 15: 39.4, 16: 1104.0, 17: 156.2, 19: 78.4, 20: 699.5, 21: -33.4, 23: 131.0, 26: 9.75 }, 11: { 1: 114.5, 5: 164.5, 6: 51.1, 7: 8.0, 8: 8.0, 9: 89.0, 10: 89.0, 12: 89.0, 13: 98.0, 14: -37.4, 15: 43.1, 16: 298.5, 17: 110.8, 19: -87.0, 20: 43.08, 21: 89.0, 23: 71.9, 26: 104.9 }, 12: { 1: 13.1, 5: 86.8, 6: -129.0, 7: 0, 8: 147.4, 9: 68.0, 10: 68.0, 11: 89.0, 13: 0, 14: 0, 15: 0, 16: 574.9, 17: 0, 19: 0, 20: 0, 21: 68.0, 23: 0, 26: 0 }, 13: { 1: 169.1, 5: 343.3, 6: 119.2, 7: 121.7, 8: 121.7, 9: 207.7, 10: 207.7, 11: 149.0, 12: 0, 14: 0, 15: 35.84, 16: 119.2, 17: -12.45, 19: 13.9, 20: 45.92, 21: 207.7, 23: 0, 26: 0 }, 14: { 1: 111.8, 5: 232.0, 6: 95.8, 7: 0, 8: 232.0, 9: 147.0, 10: 147.0, 11: 164.0, 12: 0, 13: 0, 15: 0, 16: -120.4, 17: 0, 19: 0, 20: 0, 21: 0, 23: 0, 26: 0 }, 15: { 1: 37.7, 5: 217.4, 6: 49.5, 7: 164.7, 8: 164.7, 9: 177.3, 10: 177.3, 11: 71.9, 12: 0, 13: 473.5, 14: 0, 16: 23.4, 17: 421.1, 19: 145.7, 20: -220.1, 21: 177.3, 23: 0, 26: 0 }, 16: { 1: 300.0, 5: 353.5, 6: 125.0, 7: 127.0, 8: -176.7, 9: 25.77, 10: 25.77, 11: 139.1, 12: 24.3, 13: 239.3, 14: 253.9, 15: 339.1, 17: 426.6, 19: 476.4, 20: 66.17, 21: 25.77, 23: -138.6, 26: 641.5 }, 17: { 1: 110.5, 5: 312.0, 6: 78.74, 7: 247.1, 8: 247.1, 9: 61.26, 10: 61.26, 11: 49.0, 12: 0, 13: 279.7, 15: 11.23, 16: -160.0, 19: -13.1, 20: -11.08, 21: 61.26, 23: 0, 26: 0 }, 19: { 1: -8.1, 5: -93.36, 6: 162.4, 7: 304.5, 8: 304.5, 9: -22.9, 10: -22.9, 11: 170.0, 12: 0, 13: 317.8, 15: 153.3, 16: 288.3, 17: 184.2, 20: 255.4, 21: -22.9, 23: 0, 26: 0 }, 20: { 1: 247.0, 5: -151.0, 6: 16.5, 7: 43.08, 8: 43.08, 9: 64.6, 10: 247.0, 11: 43.08, 12: 0, 13: 433.8, 15: -8.08, 16: -14.09, 17: 153.3, 19: 34.0, 21: 64.6, 23: 0, 26: 0 }, 21: { 1: -11.12, 5: 140.6, 6: 82.5, 7: 25.0, 8: 25.0, 10: -11.12, 11: 89.0, 12: 68.0, 13: 49.7, 15: 39.4, 16: 808.7, 17: 156.2, 19: 78.4, 20: 260.6, 23: 131.0, 26: 9.75 }, 23: { 1: 342.3, 5: 5.89, 6: 235.3, 7: 0, 8: 8.95, 9: -80.9, 10: -80.9, 11: 14.5, 12: 0, 13: 0, 15: 0, 16: 302.2, 17: 0, 19: 0, 20: 0, 21: 0, 26: 0 }, 26: { 1: 28.02, 5: 176.4, 6: 62.45, 7: 0, 8: 46.15, 9: 63.3, 10: 63.3, 11: 52.4, 12: 0, 13: 0, 15: 0, 16: 145.2, 17: 0, 19: 0, 20: 0, 21: 0, 23: 0 }};
+        const UNIFAC_SMARTS_DEFINITIONS = [ { subgroupId: 80, name: 'COOH', smarts: '[CX3](=O)[OX2H1]', core_indices: [0, 1, 2] }, { subgroupId: 19, name: '-COO-', smarts: '[#6]C(=O)O[#6]', core_indices: [1, 2, 3] }, { subgroupId: 47, name: '>N-CO-', smarts: '[#6]C(=O)N([#6])[#6]', core_indices: [1,2] }, { subgroupId: 46, name: 'CONH', smarts: '[#6][CX3](=O)[NX3H1][#6]', core_indices: [1, 2, 3] }, { subgroupId: 50, name: 'DMF', smarts: '[CH](=O)N(C)C', core_indices: [0, 1, 2, 3, 4] }, { subgroupId: 48, name: 'ACN', smarts: 'CC#N', core_indices: [0, 1, 2] }, { subgroupId: 45, name: 'CONH2', smarts: 'C(=O)N', core_indices: [0, 1, 2] }, { subgroupId: 17, name: 'CHO', smarts: '[CX3H1](=O)[#6]', core_indices: [0, 1] }, { subgroupId: 59, name: 'DMSO', smarts: 'CS(=O)C', core_indices: [0, 1, 2, 3] }, { subgroupId: 18, name: '>C=O', smarts: '[#6][CX3](=O)[#6]', core_indices: [1] }, { subgroupId: 15, name: 'OH', smarts: '[#6][OX2H1]', core_indices: [1] }, { subgroupId: 37, name: '-NH2', smarts: '[#6][NX3;H2]', core_indices: [1] }, { subgroupId: 16, name: '-O-', smarts: '[#6][OX2H0][#6]', core_indices: [1] }, { subgroupId: 34, name: 'ACOCH3', smarts: '[c]OC', core_indices: [0, 1, 2]}, { subgroupId: 55, name: 'ACCl', smarts: '[c]-[Cl]', core_indices: [1] }, { subgroupId: 22, name: 'ACCH', smarts: '[c][CH1]([#6])', core_indices: [1] }, { subgroupId: 64, name: 'CF3', smarts: '[C](F)(F)F', core_indices: [0, 1, 2, 3] }, { subgroupId: 65, name: 'CF2', smarts: '[C;H0](F)F', core_indices: [0, 1, 2] }, { subgroupId: 52, name: 'CH2Cl', smarts: '[C;!a]-[Cl]', core_indices: [1] }, { subgroupId: 51, name: 'H2O', smarts: '[OH2]', core_indices: [0] }, { subgroupId: 29, name: 'ACH', smarts: '[c]', core_indices: [0] }, { subgroupId: 4, name: 'CH', smarts: '[CH1]', core_indices: [0] }, { subgroupId: 2, name: 'CH2', smarts: '[CH2]', core_indices: [0] }, { subgroupId: 1, name: 'CH3', smarts: '[CH3]', core_indices: [0] }, { subgroupId: 3, name: '>C<', smarts: '[C;H0;X4]', core_indices: [0]} ];
+        const SOLVENT_LIBRARY = { manual: { name: "-- Manual Input --", smiles: "", density: ""}, water: { name: "Water", smiles: "O", density: 1.0 }, methanol: { name: "Methanol", smiles: "CO", density: 0.792 }, ethanol: { name: "Ethanol", smiles: "CCO", density: 0.789 }, isopropanol: { name: "Isopropanol (IPA)", smiles: "CC(C)O", density: 0.786 }, hexane: { name: "n-Hexane", smiles: "CCCCCC", density: 0.659 }, heptane: { name: "n-Heptane", smiles: "CCCCCCC", density: 0.684 }, benzene: { name: "Benzene", smiles: "c1ccccc1", density: 0.876 }, toluene: { name: "Toluene", smiles: "c1ccccc1C", density: 0.867 }, acetone: { name: "Acetone", smiles: "CC(=O)C", density: 0.791 }, ethyl_acetate: { name: "Ethyl Acetate", smiles: "CC(=O)OCC", density: 0.902 }, isopropyl_acetate: { name: "Isopropyl Acetate (IpAc)", smiles: "CC(=O)OC(C)C", density: 0.872 }, diethyl_ether: { name: "Diethyl Ether", smiles: "CCOCC", density: 0.713 }, mtbe: { name: "MTBE", smiles: "CC(C)(C)OC", density: 0.741 }, thf: { name: "Tetrahydrofuran (THF)", smiles: "C1CCOC1", density: 0.889 }, methf: { name: "2-Methyl-THF (MeTHF)", smiles: "CC1CCCO1", density: 0.854 }, anisole: { name: "Anisole", smiles: "COc1ccccc1", density: 0.995 }, dcm: { name: "Dichloromethane (DCM)", smiles: "C(Cl)Cl", density: 1.33 }, chlorobenzene: { name: "Chlorobenzene", smiles: "c1ccccc1Cl", density: 1.11 }, acetonitrile: { name: "Acetonitrile (ACN)", smiles: "CC#N", density: 0.786 }, dmf: { name: "Dimethylformamide (DMF)", smiles: "C(=O)N(C)C", density: 0.944 }, dmac: { name: "Dimethylacetamide (DMAC)", smiles: "CC(=O)N(C)C", density: 0.942 }, dmso: { name: "Dimethyl Sulfoxide (DMSO)", smiles: "CS(=O)C", density: 1.1 } };
+        const R_GAS_CONSTANT = 8.31446; const Z_COORD_NUMBER = 10; let RDKIT_MODULE = null;
+        let solutes = {
+            solute1: { name: '', smiles: '', tfus: 0, dhfus: 0, groups: {}, mw: 0, r: 0, q: 0 },
+            solute2: { name: '', smiles: '', tfus: 0, dhfus: 0, groups: {}, mw: 0, r: 0, q: 0 }
+        };
+        let solubilityChart = null;
+
+        function getMoleculeData(smiles) {
+            if (!smiles) return null;
+            const mol = RDKIT_MODULE.get_mol(smiles);
+            if (!mol || !mol.is_valid()) { throw new Error(`Invalid SMILES: "${smiles}"`); }
+            const groupCounts = {};
+            const usedAtoms = new Set();
+            for (const group of UNIFAC_SMARTS_DEFINITIONS) {
+                const query = RDKIT_MODULE.get_qmol(group.smarts);
+                const matchesStr = mol.get_substruct_matches(query);
+                if (matchesStr && matchesStr !== "[]") {
+                    const parsedResult = JSON.parse(matchesStr);
+                    let iterableMatches = Array.isArray(parsedResult) ? parsedResult : [parsedResult];
+                    for (const matchObject of iterableMatches) {
+                        const allAtomIndices = matchObject.atoms;
+                        if (!allAtomIndices) continue;
+                        const coreAtomIndices = group.core_indices.map(i => allAtomIndices[i]);
+                        if (coreAtomIndices.some(atomIdx => usedAtoms.has(atomIdx))) continue;
+                        groupCounts[group.subgroupId] = (groupCounts[group.subgroupId] || 0) + 1;
+                        coreAtomIndices.forEach(atomIdx => usedAtoms.add(atomIdx));
+                    }
+                }
+                query.delete();
+            }
+            const descriptors = JSON.parse(mol.get_descriptors());
+            const molarMass = descriptors.exactmw;
+            mol.delete();
+
+            let r = 0, q = 0;
+            for (const subgroupId in groupCounts) {
+                r += groupCounts[subgroupId] * UNIFAC_GROUP_PARAMS[subgroupId].R;
+                q += groupCounts[subgroupId] * UNIFAC_GROUP_PARAMS[subgroupId].Q;
+            }
+            return { groups: groupCounts, mw: molarMass, r, q };
+        }
+
+        function calculateUnifacLogGamma(componentGroups, moleFractions, T, targetIndex) {
+            const numComponents = componentGroups.length;
+            const r = componentGroups.map(comp => comp.r);
+            const q = componentGroups.map(comp => comp.q);
+            
+            let r_sum = 0, q_sum = 0;
+            for (let i = 0; i < numComponents; i++) {
+                r_sum += r[i] * moleFractions[i];
+                q_sum += q[i] * moleFractions[i];
+            }
+            if (r_sum === 0 || q_sum === 0) return 0;
+
+            const Phi = r.map((ri, i) => ri * moleFractions[i] / r_sum);
+            const Theta = q.map((qi, i) => qi * moleFractions[i] / q_sum);
+            const L = r.map((ri, i) => (Z_COORD_NUMBER / 2) * (ri - q[i]) - (ri - 1));
+            
+            let L_sum = 0;
+            for (let i = 0; i < numComponents; i++) { L_sum += moleFractions[i] * L[i]; }
+            
+            const ln_gamma_C = Math.log(Phi[targetIndex] / moleFractions[targetIndex]) + (Z_COORD_NUMBER / 2) * q[targetIndex] * Math.log(Theta[targetIndex] / Phi[targetIndex]) + L[targetIndex] - (Phi[targetIndex] / moleFractions[targetIndex]) * L_sum;
+            
+            const allSubgroupsInMixture = new Set();
+            componentGroups.forEach(c => Object.keys(c.groups).forEach(k => allSubgroupsInMixture.add(k)));
+            
+            let totalMolesGroupsInMixture = 0;
+            componentGroups.forEach((comp, i) => {
+                Object.values(comp.groups).forEach(count => {
+                    totalMolesGroupsInMixture += count * moleFractions[i];
+                });
+            });
+
+            if (totalMolesGroupsInMixture === 0) return ln_gamma_C;
+
+            const X = {};
+            allSubgroupsInMixture.forEach(k => {
+                let molesK = 0;
+                componentGroups.forEach((c, i) => { molesK += (c.groups[k] || 0) * moleFractions[i]; });
+                X[k] = molesK / totalMolesGroupsInMixture;
+            });
+
+            let sum_XQ = 0;
+            allSubgroupsInMixture.forEach(k => sum_XQ += X[k] * UNIFAC_GROUP_PARAMS[k].Q);
+            if (sum_XQ === 0) return ln_gamma_C;
+
+            const Theta_group = {};
+            allSubgroupsInMixture.forEach(k => { Theta_group[k] = X[k] * UNIFAC_GROUP_PARAMS[k].Q / sum_XQ; });
+
+            const Psi = {};
+            allSubgroupsInMixture.forEach(m_sub_id => {
+                const m_main_id = UNIFAC_GROUP_PARAMS[m_sub_id].main_group_id;
+                Psi[m_sub_id] = {};
+                allSubgroupsInMixture.forEach(k_sub_id => {
+                    const k_main_id = UNIFAC_GROUP_PARAMS[k_sub_id].main_group_id;
+                    const a_mk = UNIFAC_INTERACTION_PARAMS[m_main_id]?.[k_main_id] ?? 0;
+                    Psi[m_sub_id][k_sub_id] = Math.exp(-a_mk / T);
+                });
+            });
+
+            const ln_Gamma_mixture = {};
+            allSubgroupsInMixture.forEach(k => {
+                let term2_sum = 0;
+                let term3_sum = 0;
+                allSubgroupsInMixture.forEach(m => {
+                    term2_sum += Theta_group[m] * Psi[m][k];
+                    let term3_denominator = 0;
+                    allSubgroupsInMixture.forEach(n => {
+                        term3_denominator += Theta_group[n] * Psi[n][m];
+                    });
+                    if (term3_denominator > 0) term3_sum += (Theta_group[m] * Psi[k][m]) / term3_denominator;
+                });
+                ln_Gamma_mixture[k] = UNIFAC_GROUP_PARAMS[k].Q * (1 - Math.log(term2_sum) - term3_sum);
+            });
+
+            let ln_gamma_R = 0;
+            const targetComponentGroups = componentGroups[targetIndex].groups;
+            for (const k in targetComponentGroups) {
+                if (Object.hasOwnProperty.call(targetComponentGroups, k)) {
+                    const nu_k = targetComponentGroups[k];
+                    const ln_Gamma_pure = calculate_ln_Gamma_k_pure(k, targetComponentGroups, T);
+                    ln_gamma_R += nu_k * (ln_Gamma_mixture[k] - ln_Gamma_pure);
+                }
+            }
+            return ln_gamma_C + ln_gamma_R;
+        }
+
+        function calculate_ln_Gamma_k_pure(k, pureComponentGroups, T) {
+            let totalMolesGroupsInPure = 0;
+            Object.values(pureComponentGroups).forEach(count => totalMolesGroupsInPure += count);
+            if (totalMolesGroupsInPure === 0) return 0;
+            const X_pure = {};
+            Object.keys(pureComponentGroups).forEach(key => X_pure[key] = pureComponentGroups[key] / totalMolesGroupsInPure);
+            let sum_XQ_pure = 0;
+            Object.keys(X_pure).forEach(key => sum_XQ_pure += X_pure[key] * UNIFAC_GROUP_PARAMS[key].Q);
+            if (sum_XQ_pure === 0) return 0;
+            const Theta_group_pure = {};
+            Object.keys(X_pure).forEach(key => Theta_group_pure[key] = X_pure[key] * UNIFAC_GROUP_PARAMS[key].Q / sum_XQ_pure);
+            const Psi_pure = {};
+            Object.keys(pureComponentGroups).forEach(m_sub_id => {
+                const m_main_id = UNIFAC_GROUP_PARAMS[m_sub_id].main_group_id;
+                Psi_pure[m_sub_id] = {};
+                Object.keys(pureComponentGroups).forEach(k_sub_id => {
+                    const k_main_id = UNIFAC_GROUP_PARAMS[k_sub_id].main_group_id;
+                    const a_mk = UNIFAC_INTERACTION_PARAMS[m_main_id]?.[k_main_id] ?? 0;
+                    Psi_pure[m_sub_id][k_sub_id] = Math.exp(-a_mk / T);
+                });
+            });
+            let term2_sum_pure = 0, term3_sum_pure = 0;
+            Object.keys(pureComponentGroups).forEach(m => {
+                term2_sum_pure += Theta_group_pure[m] * (Psi_pure[m]?.[k] ?? 1);
+                let term3_denominator_pure = 0;
+                Object.keys(pureComponentGroups).forEach(n => {
+                    term3_denominator_pure += Theta_group_pure[n] * (Psi_pure[n]?.[m] ?? 1);
+                });
+                if (term3_denominator_pure > 0) term3_sum_pure += (Theta_group_pure[m] * (Psi_pure[k]?.[m] ?? 1)) / term3_denominator_pure;
+            });
+            return UNIFAC_GROUP_PARAMS[k].Q * (1 - Math.log(term2_sum_pure) - term3_sum_pure);
+        }
+
+        function runAnalysis() {
+            const outputArea = document.getElementById('output-area-1');
+            outputArea.className = 'output-area';
+            document.getElementById('module2').style.display = 'none';
+
+            try {
+                let outputText = "";
+                // Solute 1
+                solutes.solute1.name = document.getElementById('name1-input').value.trim();
+                solutes.solute1.smiles = document.getElementById('smiles1-input').value.trim();
+                const data1 = getMoleculeData(solutes.solute1.smiles);
+                Object.assign(solutes.solute1, data1);
+                outputText += `Analysis for "${solutes.solute1.name}" complete!\n`;
+                outputText += `  Molar Mass: ${solutes.solute1.mw.toFixed(2)} g/mol\n`;
+                outputText += "  Detected Groups:\n";
+                for (const subgroupId in solutes.solute1.groups) {
+                    outputText += `    - ${solutes.solute1.groups[subgroupId]} x ${UNIFAC_GROUP_PARAMS[subgroupId].name}\n`;
+                }
+                
+                // Solute 2
+                solutes.solute2.name = document.getElementById('name2-input').value.trim();
+                solutes.solute2.smiles = document.getElementById('smiles2-input').value.trim();
+                const data2 = getMoleculeData(solutes.solute2.smiles);
+                Object.assign(solutes.solute2, data2);
+                outputText += `\nAnalysis for "${solutes.solute2.name}" complete!\n`;
+                outputText += `  Molar Mass: ${solutes.solute2.mw.toFixed(2)} g/mol\n`;
+                outputText += "  Detected Groups:\n";
+                for (const subgroupId in solutes.solute2.groups) {
+                    outputText += `    - ${solutes.solute2.groups[subgroupId]} x ${UNIFAC_GROUP_PARAMS[subgroupId].name}\n`;
+                }
+
+                outputArea.classList.add('success');
+                outputArea.textContent = outputText;
+                document.getElementById('module2').style.display = 'block';
+
+            } catch (error) {
+                outputArea.classList.add('error');
+                outputArea.textContent = `ERROR: ${error.message}`;
+            }
+        }
+        
+        async function runCoSolventAnalysis() {
+            const button = document.getElementById('calculate-curve-button');
+            button.disabled = true;
+            button.textContent = 'Calculating...';
+            document.getElementById('chart-area').style.display = 'block';
+            
+            try {
+                const T_celsius = parseFloat(document.getElementById('temperature-input').value);
+                if (isNaN(T_celsius)) throw new Error("Invalid temperature.");
+                const T = T_celsius + 273.15;
+
+                const solventA_key = document.getElementById('solvent-a-selector').value;
+                const solventB_key = document.getElementById('solvent-b-selector').value;
+                if (solventA_key === 'manual' || solventB_key === 'manual') throw new Error("Please select two solvents from the library.");
+
+                const solventA_info = SOLVENT_LIBRARY[solventA_key];
+                const solventB_info = SOLVENT_LIBRARY[solventB_key];
+                const solventA_data = getMoleculeData(solventA_info.smiles);
+                const solventB_data = getMoleculeData(solventB_info.smiles);
+
+                const chartLabels = [];
+                const results = {
+                    solute1: [],
+                    solute2: [],
+                    selectivity: []
+                };
+
+                const calculateSolubility = (solute, solventA, solventB, fractionA, T) => {
+                    const term_fusion = (solute.dhfus / R_GAS_CONSTANT) * ((1 / (solute.tfus + 273.15)) - (1 / T));
+                    let x_solute_guess = Math.exp(term_fusion);
+                    for (let j = 0; j < 15; j++) {
+                        const x_A = fractionA * (1 - x_solute_guess);
+                        const x_B = (1 - fractionA) * (1 - x_solute_guess);
+                        const moleFractions = [x_solute_guess, x_A, x_B];
+                        const componentGroups = [solute, solventA, solventB];
+                        const ln_gamma = calculateUnifacLogGamma(componentGroups, moleFractions, T, 0);
+                        const old_x = x_solute_guess;
+                        x_solute_guess = Math.exp(-ln_gamma + term_fusion);
+                        if (Math.abs(x_solute_guess - old_x) / old_x < 1e-5) break;
+                    }
+                    return x_solute_guess;
+                };
+                
+                for (let i = 0; i <= 20; i++) {
+                    const fractionA = 1 - (i / 20);
+                    chartLabels.push(`${(fractionA * 100).toFixed(0)}% ${solventA_info.name}`);
+
+                    solutes.solute1.tfus = parseFloat(document.getElementById('tfus1-input').value);
+                    solutes.solute1.dhfus = parseFloat(document.getElementById('dhfus1-input').value);
+                    const x1 = calculateSolubility(solutes.solute1, solventA_data, solventB_data, fractionA, T);
+                    results.solute1.push(x1);
+
+                    solutes.solute2.tfus = parseFloat(document.getElementById('tfus2-input').value);
+                    solutes.solute2.dhfus = parseFloat(document.getElementById('dhfus2-input').value);
+                    const x2 = calculateSolubility(solutes.solute2, solventA_data, solventB_data, fractionA, T);
+                    results.solute2.push(x2);
+                    
+                    results.selectivity.push(x1 > 0 && x2 > 0 ? x1 / x2 : 0);
+                }
+                
+                drawChart(chartLabels, results);
+
+            } catch (e) {
+                alert(e.message);
+            } finally {
+                button.disabled = false;
+                button.textContent = '2. Calculate Phase Diagram';
+            }
+        }
+        
+        function drawChart(labels, results) {
+            const ctx = document.getElementById('solubility-chart').getContext('2d');
+            if (solubilityChart) {
+                solubilityChart.destroy();
+            }
+            solubilityChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: `Solubility of ${solutes.solute1.name} (mole fraction)`,
+                            data: results.solute1,
+                            borderColor: 'rgb(54, 162, 235)',
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: `Solubility of ${solutes.solute2.name} (mole fraction)`,
+                            data: results.solute2,
+                            borderColor: 'rgb(255, 99, 132)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Selectivity (S1/S2)',
+                            data: results.selectivity,
+                            borderColor: 'rgb(75, 192, 192)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            yAxisID: 'y1',
+                            borderDash: [5, 5]
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    stacked: false,
+                    scales: {
+                        y: {
+                            type: 'logarithmic',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Solubility (mole fraction)'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Selectivity'
+                            },
+                            grid: {
+                                drawOnChartArea: false, 
+                            },
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Solvent Mixture Composition'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        window.initRDKitModule().then(function (instance) {
+            RDKIT_MODULE = instance;
+            const analyzeButton = document.getElementById('analyze-button');
+            const solventA_selector = document.getElementById('solvent-a-selector');
+            const solventB_selector = document.getElementById('solvent-b-selector');
+
+            for(const key in SOLVENT_LIBRARY) {
+                if (key === 'manual') continue;
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = SOLVENT_LIBRARY[key].name;
+                solventA_selector.appendChild(option.cloneNode(true));
+                solventB_selector.appendChild(option.cloneNode(true));
+            }
+            solventA_selector.value = 'water';
+            solventB_selector.value = 'ethanol';
+
+            analyzeButton.disabled = false;
+            analyzeButton.textContent = '1. Analyze Compounds';
+            document.getElementById('output-area-1').textContent = 'Library ready.';
+            analyzeButton.addEventListener('click', runAnalysis);
+            document.getElementById('calculate-curve-button').addEventListener('click', runCoSolventAnalysis);
+        }).catch((e) => {
+            document.getElementById('output-area-1').classList.add('error');
+            document.getElementById('output-area-1').textContent = 'CRITICAL ERROR: Could not load RDKit library.';
+            console.error(e);
+        });
+    </script>
+</body>
+</html>
