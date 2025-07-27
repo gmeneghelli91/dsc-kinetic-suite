@@ -1,152 +1,252 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-S7BR3ME7C7"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-S7BR3ME7C7');
-</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tool Cristallizzazione - v3 Analisi Interattiva</title>
+    <title>Crystallization Tool - v22 Session & Phase Diagram Fix</title>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.1"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/regression/2.0.1/regression.min.js"></script>
 
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f6; color: #333; line-height: 1.6; margin: 0; padding: 20px; }
-        .container { max-width: 900px; margin: auto; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h1, h2 { color: #005f73; border-bottom: 1px solid #e0e0e0; padding-bottom: 5px;}
+        .container { max-width: 1000px; margin: auto; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1, h2, h3, h4 { color: #005f73; border-bottom: 1px solid #e0e0e0; padding-bottom: 5px;}
+        h3, h4 { border-bottom: none; }
         
-        .input-tabs { border-bottom: 2px solid #ccc; margin-bottom: 15px; }
-        .tab-button { background: none; border: none; font-size: 16px; padding: 10px 15px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
-        .tab-button.active { border-bottom-color: #0077b6; font-weight: bold; color: #005f73;}
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-
-        #dataTable { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        #dataTable th, #dataTable td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        .table-container { overflow-x: auto; }
+        #dataTable { width: 100%; border-collapse: collapse; margin-top: 15px; min-width: 900px; }
+        #dataTable th, #dataTable td { border: 1px solid #ddd; padding: 8px; text-align: center; transition: background-color 0.3s; }
         #dataTable th { background-color: #eef7f9; }
         #dataTable td[contenteditable="true"]:focus { background-color: #f0f8ff; outline: 2px solid #0077b6; }
+        #dataTable tr.highlighted td { background-color: #fff3cd; }
         .delete-row-btn { cursor: pointer; color: #d9534f; font-weight: bold; }
-        #addRowBtn { margin-top: 10px; padding: 8px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        
-        #file-upload-status { margin-top: 10px; color: #005f73; font-style: italic;}
+        #addRowBtn, #exportTableBtn, #importTableBtn, #saveSessionBtn, #loadSessionBtn { margin-top: 10px; padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; }
+        #addRowBtn { background-color: #28a745; color: white; }
+        #exportTableBtn { background-color: #17a2b8; color: white; margin-left: 10px;}
+        #importTableBtn { background-color: #6c757d; color: white; margin-left: 10px;}
         
         #processButton { display: block; width: 100%; padding: 12px; margin-top: 20px; background-color: #0077b6; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; transition: background-color 0.3s; }
         #processButton:hover { background-color: #023e8a; }
 
         .chart-section, .results-section { margin-top: 30px; }
-        #recommendations-container { background-color: #eef7f9; border-left: 5px solid #0077b6; padding: 1px 15px; margin-top: 10px; border-radius: 4px; }
-        #concentration-selector-label { font-weight: bold; margin-right: 10px; }
-        #concentrationSelector { padding: 5px; border-radius: 4px; border: 1px solid #ccc; }
+        .analysis-container { background-color: #eef7f9; border-left: 5px solid #0077b6; padding: 1px 15px; margin-top: 10px; border-radius: 4px; }
+        .input-group { margin-top: 10px; margin-bottom: 10px; display: flex; align-items: center; flex-wrap: wrap; }
+        .input-group label { margin-right: 5px; white-space: nowrap;}
+        .input-group input, .input-group select { padding: 5px; border-radius: 4px; border: 1px solid #ccc; margin: 0 5px; }
+        .input-group button { padding: 5px 10px; }
+
+        .equation { font-family: 'Courier New', Courier, monospace; background-color: #e3e3e3; padding: 5px; border-radius: 4px; display: inline-block; margin-top: 5px;}
+        #logContainer { display:none; background-color: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 5px; margin-top: 10px; font-family: 'Courier New', monospace; white-space: pre-wrap; max-height: 300px; overflow-y: auto; font-size: 12px; }
+        
+        #intro-container { background-color: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 5px; padding: 15px; margin-top: 15px; }
+        #chart-toggles { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Mappa della Zona Metastabile (MSZW)</h1>
+        <h1>Crystallization Analysis Tool</h1>
 
-        <div class="input-section">
-            <h2>1. Dati di Input</h2>
-            <div class="input-tabs">
-                <button class="tab-button active" onclick="showTab('manual', this)">Tabella Manuale</button>
-                <button class="tab-button" onclick="showTab('upload', this)">Carica File</button>
-            </div>
+        <div id="intro-container">
+            <h3>Theoretical Introduction</h3>
+            <p>This tool analyzes the solubility and metastable zone width (MSZW) of a solute in a solvent. The <b>solubility curve</b> (or clear point curve) represents the thermodynamic limit above which the solid phase dissolves completely. The <b>nucleation curve</b> (or cloud point curve) represents the kinetic limit where spontaneous nucleation begins upon cooling. The region between these two curves is the <b>Metastable Zone</b>, a supersaturated state where crystallization can be controlled.</p>
+            <h4>The Van 't Hoff Equation</h4>
+            <p>The relationship between solubility (expressed as concentration, C) and absolute temperature (T) is described by the <b>Van 't Hoff equation</b>. Its linear form is fundamental for thermodynamic analysis:</p>
+            <div class="equation" style="text-align: center; width: 90%; margin: auto;">ln(C) = - (ΔH / R) * (1/T) + (ΔS / R)</div>
+            <p style="margin-top:10px;">Where:
+                <ul>
+                    <li><b>ΔH</b> is the enthalpy of dissolution (heat absorbed or released).</li>
+                    <li><b>ΔS</b> is the entropy of dissolution (change in disorder).</li>
+                    <li><b>R</b> is the ideal gas constant (8.314 J/mol·K).</li>
+                </ul>
+            By plotting <b>ln(C)</b> versus <b>1/T</b>, we obtain a straight line. The slope of this line is <b>-ΔH/R</b>, and the y-intercept is <b>ΔS/R</b>. This tool uses this linear regression to calculate the thermodynamic parameters from your solubility data.</p>
+            <h4>Other Models</h4>
+            <p>While the Van 't Hoff model has a strong theoretical basis, empirical models like <b>Linear</b> (C = mT + c) or <b>Polynomial</b> (C = aT² + bT + c) can sometimes provide a better fit for experimental data in non-ideal systems. This tool calculates all three models, allowing you to choose the one with the highest R² value for your analyses.</p>
+        </div>
 
-            <div id="manual" class="tab-content active">
-                <p>Modifica i dati direttamente o aggiungi nuove righe. Premi il pulsante in fondo per aggiornare il grafico.</p>
+        <div class="input-section" style="margin-top: 30px;">
+            <h2>1. Input Data</h2>
+            <p>Edit the data directly or add new rows. Press the button at the bottom to update charts and analysis.</p>
+            <div class="table-container">
                 <table id="dataTable">
-                    <thead><tr><th>Concentrazione</th><th>Temp. Clear (°C)</th><th>Temp. Cloud (°C)</th><th></th></tr></thead>
+                    <thead><tr><th>Compound Name</th><th>Concentration</th><th>Solvent 1 Name</th><th>% Solvent 1</th><th>Solvent 2 Name</th><th>% Solvent 2</th><th>Clear Temp (°C)</th><th>Cloud Temp (°C)</th><th></th></tr></thead>
                     <tbody id="dataTableBody"></tbody>
                 </table>
-                <button id="addRowBtn">+ Aggiungi Riga</button>
             </div>
-
-            <div id="upload" class="tab-content">
-                <p>Seleziona un file <strong>.csv</strong>, <strong>.xlsx</strong>, o <strong>.xls</strong>.</p>
-                <input type="file" id="fileInput" accept=".csv, .xlsx, .xls">
-                <div id="file-upload-status"></div>
-            </div>
-
-            <button id="processButton">Crea/Aggiorna Grafico e Analisi</button>
+            <button id="addRowBtn">+ Add Row</button>
+            <button id="importTableBtn">Import Table (CSV/XLSX)</button>
+            <button id="exportTableBtn">Export Table (CSV)</button>
+            <input type="file" id="fileInput" accept=".csv, .xlsx, .xls, .json" style="display: none;">
+            <button id="processButton">Create/Update Chart and Analysis</button>
         </div>
 
         <div class="chart-section">
-            <h2>2. Visualizzazione Grafica</h2>
+            <h2>2. Metastable Zone Width (MSZW) Map</h2>
             <canvas id="crystallizationChart"></canvas>
+            <div class="analysis-container" style="margin-top: 15px;">
+                <h4>Chart Display Options</h4>
+                <div id="chart-toggles"></div>
+            </div>
+            <div class="input-group" style="justify-content: center; margin-top: 15px;">
+                <button id="exportChartBtn">Export Chart (PNG)</button>
+            </div>
         </div>
         
         <div class="results-section">
-            <h2>3. Analisi e Raccomandazioni</h2>
-            <div id="analysis-selector-container">
-                <label id="concentration-selector-label" for="concentrationSelector">Scegli la concentrazione da analizzare:</label>
-                <select id="concentrationSelector"></select>
+            <div class="phase-diagram-section">
+                <h2>3. Phase Diagram: Temperature vs. Solvent Composition</h2>
+                <div class="analysis-container" style="border-left-color: #9c27b0;">
+                    <p>Analyze how solubility changes with the solvent ratio at a fixed concentration.</p>
+                    <div class="input-group">
+                        <label for="phase-conc-input">Fixed Concentration:</label>
+                        <input type="number" id="phase-conc-input" placeholder="e.g., 100">
+                        <button id="draw-phase-diagram-btn">Generate Diagram</button>
+                    </div>
+                    <div class="chart-section" style="margin-top:10px;">
+                        <canvas id="phaseDiagramChart"></canvas>
+                    </div>
+                     <p id="phase-diagram-model-info" style="font-size: smaller; font-style: italic; text-align: center;"></p>
+                </div>
             </div>
-            <div id="recommendations-container">
-                <div id="recommendations"></div>
+
+            <div class="models-section" style="margin-top: 30px;">
+                <h2>4. Fit Model Analysis</h2>
+                 <div class="input-group">
+                    <label for="system-selector">Select solvent system to analyze:</label>
+                    <select id="system-selector"></select>
+                    <label for="model-selector" style="margin-left: 15px;">Select fit model:</label>
+                    <select id="model-selector">
+                        <option value="vanthoff">Van 't Hoff</option>
+                        <option value="polynomial">Polynomial (2nd Degree)</option>
+                        <option value="linear">Linear</option>
+                    </select>
+                </div>
+                <div id="solubility-model-container">
+                    <h3>Solubility Curve</h3>
+                    <div class="analysis-container" style="border-left-color: #00b4d8;">
+                        <div id="solubility-model-results"></div>
+                    </div>
+                </div>
+                <div id="nucleation-model-container" style="margin-top: 25px;">
+                    <h3>Nucleation Curve</h3>
+                     <div class="analysis-container" style="border-left-color: #d9534f;">
+                        <div id="nucleation-model-results"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="point-analysis-section" style="margin-top: 30px;">
+                <h2>5. Analysis by Concentration</h2>
+                <div class="input-group">
+                    <label for="analysis-conc-input">Enter a concentration to analyze:</label>
+                    <input type="number" id="analysis-conc-input" placeholder="e.g., 110">
+                    <button id="analyze-conc-btn">Analyze</button>
+                </div>
+                <div class="analysis-container">
+                    <div id="recommendations"></div>
+                </div>
+            </div>
+
+            <div class="yield-section" style="margin-top: 30px;">
+                <h2>6. Crystallization Yield Calculation</h2>
+                <div class="analysis-container" style="border-left-color: #4caf50;">
+                    <p>Calculate the theoretical yield for the system <b id="yield-system-label"></b> based on the selected solubility model.</p>
+                    <div class="input-group">
+                        <label for="yield-conc-start">Initial Concentration:</label>
+                        <input type="number" id="yield-conc-start" placeholder="e.g., 150">
+                    </div>
+                    <div class="input-group">
+                        <label for="yield-temp-end">Final Temperature (°C):</label>
+                        <input type="number" id="yield-temp-end" placeholder="e.g., 25">
+                    </div>
+                    <div class="input-group">
+                         <button id="calculate-yield-btn">Calculate & Visualize Yield</button>
+                    </div>
+                    <p id="yield-result" style="margin-top: 10px; font-weight: bold;"></p>
+                </div>
+            </div>
+
+            <div class="log-section" style="margin-top: 30px;">
+                <h2>7. Calculation Log</h2>
+                <button id="toggleLogBtn" class="input-group button">Show/Hide Log</button>
+                <div id="logContainer"></div>
+            </div>
+
+            <div class="export-section" style="margin-top: 30px;">
+                <h2>8. Export & Session Management</h2>
+                <div class="input-group">
+                    <button id="exportDataBtn">Export Analysis Data (TXT)</button>
+                    <button id="saveSessionBtn" style="margin-left: 10px; background-color: #ffc107;">Save Session</button>
+                    <button id="loadSessionBtn" style="margin-left: 10px; background-color: #28a745; color: white;">Load Session</button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // --- GESTIONE INTERFACCIA ---
-        function showTab(tabName, element) {
-            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(tabName).classList.add('active');
-            element.classList.add('active');
-        }
+        // --- GLOBALS ---
+        let myChart = null;
+        let phaseDiagramChart = null;
+        let models = {};
+        let dataBySystem = {};
+        let logMessages = [];
+        const colorPalette = ['#3e95cd', '#8e5ea2', '#3cba9f', '#e8c3b9', '#c45850', '#ff9f40', '#ff6384', '#36a2eb', '#cc65fe', '#ffce56'];
 
+        // --- UI MANAGEMENT ---
         const addRowBtn = document.getElementById('addRowBtn');
         const tableBody = document.getElementById('dataTableBody');
 
-        function createRow(data = ['', '', '']) {
+        function createRow(data = ['', '', '', '', '', '', '', '']) {
             const row = document.createElement('tr');
-            row.innerHTML = `
-                <td contenteditable="true">${data[0]}</td>
-                <td contenteditable="true">${data[1]}</td>
-                <td contenteditable="true">${data[2]}</td>
-                <td class="delete-row-btn" title="Elimina riga" onclick="deleteRow(this)">X</td>
-            `;
+            row.innerHTML = `<td contenteditable="true">${data[0]}</td><td contenteditable="true">${data[1]}</td><td contenteditable="true">${data[2]}</td><td contenteditable="true">${data[3]}</td><td contenteditable="true">${data[4]}</td><td contenteditable="true">${data[5]}</td><td contenteditable="true">${data[6]}</td><td contenteditable="true">${data[7]}</td><td class="delete-row-btn" title="Delete row" onclick="deleteRow(this)">X</td>`;
             tableBody.appendChild(row);
         }
 
         function deleteRow(btn) { btn.parentElement.remove(); }
         addRowBtn.addEventListener('click', () => createRow());
 
-        // --- GESTIONE UPLOAD FILE ---
-        document.getElementById('fileInput').addEventListener('change', handleFile);
-
+        // --- FILE & SESSION MANAGEMENT ---
+        document.getElementById('importTableBtn').addEventListener('click', () => {
+            const fileInput = document.getElementById('fileInput');
+            fileInput.accept = ".csv, .xlsx, .xls";
+            fileInput.onchange = handleFile;
+            fileInput.click();
+        });
+        
         function handleFile(event) {
             const file = event.target.files[0];
-            const statusDiv = document.getElementById('file-upload-status');
-            if (!file) { statusDiv.innerText = ""; return; }
+            if (!file) return;
             const reader = new FileReader();
             reader.onload = function(e) {
                 const data = e.target.result;
-                let parsedData;
                 try {
-                    if (file.name.endsWith('.csv')) parsedData = parseCSV(data);
-                    else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) parsedData = parseExcel(data);
-                    populateTable(parsedData);
-                    statusDiv.innerText = `Caricato "${file.name}". Dati inseriti nella tabella.`;
-                    showTab('manual', document.querySelector('.tab-button'));
-                    processDataFromTable();
-                } catch (error) { alert("Errore nella lettura del file: " + error.message); statusDiv.innerText = "Caricamento fallito."; }
+                    if (file.name.endsWith('.json')) {
+                        loadSession(data);
+                    } else {
+                        const parsedData = file.name.endsWith('.csv') ? parseCSV(data) : parseExcel(data);
+                        populateTable(parsedData);
+                        processDataFromTable();
+                    }
+                } catch (error) { alert("Error reading file: " + error.message); }
             };
-            if (file.name.endsWith('.csv')) reader.readAsText(e.target.files[0], 'UTF-8');
-            else reader.readAsArrayBuffer(e.target.files[0]);
+            if (file.name.endsWith('.json') || file.name.endsWith('.csv')) {
+                reader.readAsText(file, 'UTF-8');
+            } else {
+                reader.readAsArrayBuffer(file);
+            }
+            event.target.value = '';
         }
 
         function parseCSV(csvText) {
             const separator = csvText.includes(';') ? ';' : ',';
             const rows = csvText.trim().split(/\r?\n/);
-            if (rows.length > 0 && isNaN(parseFloat(rows[0].split(separator)[0]))) rows.shift();
-            return rows.map(row => row.split(separator).map(cell => cell.trim()));
+            if (rows.length > 0 && isNaN(parseFloat(rows[0].split(separator)[1]))) {
+                rows.shift();
+            }
+            return rows.map(row => row.split(separator).map(cell => cell.trim().replace(/"/g, '')));
         }
 
         function parseExcel(data) {
@@ -158,124 +258,609 @@
         
         function populateTable(dataArray) {
             tableBody.innerHTML = '';
-            dataArray.forEach(rowData => { if(rowData.length >= 3) createRow(rowData); });
+            dataArray.forEach(rowData => { createRow(rowData); });
         }
         
-        // --- LOGICA PRINCIPALE ---
+        // --- MAIN LOGIC ---
         document.getElementById('processButton').addEventListener('click', processDataFromTable);
-        let myChart = null;
         
         function processDataFromTable() {
+            logMessages = ['New analysis started...'];
+            dataBySystem = {};
             const rows = tableBody.querySelectorAll('tr');
-            const dataForChart = [];
-            let invalidRows = 0;
-
-            rows.forEach(row => {
+            
+            rows.forEach((row, index) => {
                 const cells = row.querySelectorAll('td');
-                if (cells.length < 3) return;
-                const concentration = parseFloat(cells[0].innerText.replace(',', '.'));
-                const tempClear = parseFloat(cells[1].innerText.replace(',', '.'));
-                const tempCloud = parseFloat(cells[2].innerText.replace(',', '.'));
-                if (!isNaN(concentration) && !isNaN(tempClear) && !isNaN(tempCloud)) {
-                    dataForChart.push({ conc: concentration, clear: tempClear, cloud: tempCloud });
-                } else if (cells[0].innerText || cells[1].innerText || cells[2].innerText) {
-                    invalidRows++;
+                if (cells.length < 8) return;
+                const concentration = parseFloat(cells[1].innerText.replace(',', '.'));
+                const solvent1 = (cells[2].innerText || '').trim();
+                const s1Perc = parseFloat(cells[3].innerText.replace(',', '.'));
+                const solvent2 = (cells[4].innerText || '').trim();
+                const s2Perc = parseFloat(cells[5].innerText.replace(',', '.'));
+                const tempClear = parseFloat(cells[6].innerText.replace(',', '.'));
+                const tempCloud = parseFloat(cells[7].innerText.replace(',', '.'));
+                
+                if (!isNaN(concentration) && !isNaN(tempClear) && !isNaN(tempCloud) && solvent1) {
+                    const systemKey = solvent2 ? `${solvent1}/${solvent2} ${s1Perc}/${s2Perc}` : `${solvent1} (100%)`;
+                    if (!dataBySystem[systemKey]) {
+                        dataBySystem[systemKey] = [];
+                    }
+                    dataBySystem[systemKey].push({
+                        conc: concentration,
+                        clear: tempClear,
+                        cloud: tempCloud,
+                        s1Name: solvent1, s1Perc: s1Perc,
+                        s2Name: solvent2, s2Perc: s2Perc,
+                        originalRowIndex: index
+                    });
                 }
             });
 
-            if (invalidRows > 0) alert(`Attenzione: ${invalidRows} riga/righe contiene dati non validi ed è stata ignorata.`);
-            if (dataForChart.length < 2) { alert("Sono necessari almeno due punti dati validi per disegnare le curve."); return; }
-            
-            // Ordina per concentrazione crescente
-            dataForChart.sort((a,b) => a.conc - b.conc);
-            
-            const clearPoints = dataForChart.map(d => ({ x: d.clear, y: d.conc }));
-            const cloudPoints = dataForChart.map(d => ({ x: d.cloud, y: d.conc }));
+            if (Object.keys(dataBySystem).length === 0) { alert("No valid data systems found for analysis."); return; }
 
-            drawChart(clearPoints, cloudPoints);
+            models = {};
+            for (const system in dataBySystem) {
+                logMessages.push(`--- Processing System: ${system} ---`);
+                const systemData = dataBySystem[system];
+                if (systemData.length < 2) {
+                    logMessages.push(`WARNING: System ${system} has fewer than 2 data points and will be skipped for modeling.`);
+                    continue;
+                }
+                systemData.sort((a,b) => a.conc - b.conc);
+                
+                const clearPoints = systemData.map(d => ({ x: d.clear, y: d.conc }));
+                const cloudPoints = systemData.map(d => ({ x: d.cloud, y: d.conc }));
+
+                models[system] = { solubility: {}, nucleation: {} };
+                models[system].solubility.vanthoff = performVanthoffRegression(clearPoints, `${system}-Solubility`);
+                models[system].nucleation.vanthoff = performVanthoffRegression(cloudPoints, `${system}-Nucleation`);
+                models[system].solubility.polynomial = performPolynomialRegression(clearPoints, `${system}-Solubility`);
+                models[system].nucleation.polynomial = performPolynomialRegression(cloudPoints, `${system}-Nucleation`);
+                models[system].solubility.linear = performLinearRegression(clearPoints, `${system}-Solubility`);
+                models[system].nucleation.linear = performLinearRegression(cloudPoints, `${system}-Nucleation`);
+            }
             
-            // NUOVO: Popola il menu a tendina e avvia la prima analisi
-            updateConcentrationSelector(dataForChart);
-            analyzeData(document.getElementById('concentrationSelector').value, clearPoints, cloudPoints);
+            updateSystemSelector();
+            updateUI();
+            updateLog();
         }
 
-        // NUOVO: Aggiunto listener per il cambio di selezione nel menu a tendina
-        document.getElementById('concentrationSelector').addEventListener('change', (event) => {
-            const selectedConc = event.target.value;
-            // Recupera i dati direttamente dal grafico già esistente per efficienza
-            const clearPoints = myChart.data.datasets[0].data;
-            const cloudPoints = myChart.data.datasets[1].data;
-            analyzeData(selectedConc, clearPoints, cloudPoints);
+        function updateSystemSelector() {
+            const selector = document.getElementById('system-selector');
+            selector.innerHTML = '';
+            for (const system in dataBySystem) {
+                const option = document.createElement('option');
+                option.value = system;
+                option.text = system;
+                selector.appendChild(option);
+            }
+        }
+
+        function updateUI() {
+            buildChartToggles();
+            drawPrimaryChart();
+            runModelAnalysis();
+            const defaultConc = document.getElementById('analysis-conc-input').value || document.getElementById('dataTableBody').rows[0]?.cells[1].innerText;
+            if (defaultConc) {
+                document.getElementById('analysis-conc-input').value = defaultConc;
+                analyzeDataForConcentration(defaultConc);
+            }
+            updateYieldLabel();
+        }
+
+        // --- ANALYSIS AND CALCULATION FUNCTIONS ---
+
+        function performVanthoffRegression(points, name) {
+            const transformed = points.map(p => [1 / (p.x + 273.15), Math.log(p.y)]);
+            if (transformed.length < 2) { logMessages.push(`[${name} - Van't Hoff]: Insufficient data (requires >= 2 points).`); return null; }
+            const result = regression.linear(transformed);
+            logMessages.push(`[${name} - Van't Hoff]: Model calculated. R² = ${result.r2.toFixed(4)}`);
+            return { type: 'vanthoff', slope: result.equation[0], intercept: result.equation[1], r2: result.r2, equation: result.string };
+        }
+
+        function performPolynomialRegression(points, name) {
+            const data = points.map(p => [p.x, p.y]);
+            if (data.length < 3) { logMessages.push(`[${name} - Polynomial]: Insufficient data (requires >= 3 points).`); return null; }
+            const result = regression.polynomial(data, { order: 2 });
+            logMessages.push(`[${name} - Polynomial]: Model calculated. R² = ${result.r2.toFixed(4)}`);
+            return { type: 'polynomial', coeffs: result.equation, r2: result.r2, equation: result.string };
+        }
+
+        function performLinearRegression(points, name) {
+            const data = points.map(p => [p.x, p.y]);
+            if (data.length < 2) { logMessages.push(`[${name} - Linear]: Insufficient data (requires >= 2 points).`); return null; }
+            const result = regression.linear(data, { precision: 4 });
+            logMessages.push(`[${name} - Linear]: Model calculated. R² = ${result.r2.toFixed(4)}`);
+            return { type: 'linear', coeffs: result.equation, r2: result.r2, equation: result.string };
+        }
+
+        function getConcentrationFromModel(temp, model) {
+            if (!model) return NaN;
+            if (model.type === 'polynomial') {
+                const [a, b, c] = model.coeffs;
+                return a * temp * temp + b * temp + c;
+            } else if (model.type === 'linear') {
+                const [m, c] = model.coeffs;
+                return m * temp + c;
+            } else { // vanthoff
+                const tempK = temp + 273.15;
+                const lnC = model.slope * (1 / tempK) + model.intercept;
+                return Math.exp(lnC);
+            }
+        }
+
+        function getTemperatureFromModel(conc, model) {
+            if (!model || conc <= 0) return NaN;
+            if (model.type === 'polynomial') {
+                const [a, b, c] = model.coeffs;
+                const delta = b * b - 4 * a * (c - conc);
+                if (delta < 0) return NaN;
+                return (-b + Math.sqrt(delta)) / (2 * a);
+            } else if (model.type === 'linear') {
+                const [m, c] = model.coeffs;
+                return (conc - c) / m;
+            } else { // vanthoff
+                 const tempK_inv = (Math.log(conc) - model.intercept) / model.slope;
+                 return (1 / tempK_inv) - 273.15;
+            }
+        }
+
+        function analyzeDataForConcentration(targetConcStr) {
+            const recommendationsDiv = document.getElementById('recommendations');
+            const targetConc = parseFloat(targetConcStr);
+            const selectedSystem = document.getElementById('system-selector').value;
+            const selectedModel = document.getElementById('model-selector').value;
+            logMessages.push(`--- Analysis for C = ${targetConc} in ${selectedSystem} with ${selectedModel} model ---`);
+
+            if (isNaN(targetConc) || targetConc <= 0) { 
+                recommendationsDiv.innerHTML = `<p>Please enter a valid, positive concentration.</p>`;
+                logMessages.push(`ERROR: Invalid concentration.`); updateLog(); return;
+            }
+            if (!models[selectedSystem] || !models[selectedSystem].solubility[selectedModel] || !models[selectedSystem].nucleation[selectedModel]) { 
+                recommendationsDiv.innerHTML = `<p>Model not available for the selected system/model type.</p>`;
+                logMessages.push(`ERROR: Model ${selectedModel} for ${selectedSystem} not available.`); updateLog(); return; 
+            };
+
+            const T_clear = getTemperatureFromModel(targetConc, models[selectedSystem].solubility[selectedModel]);
+            const T_cloud = getTemperatureFromModel(targetConc, models[selectedSystem].nucleation[selectedModel]);
+            const mszw = T_clear - T_cloud;
+            const C_sat = getConcentrationFromModel(T_cloud, models[selectedSystem].solubility[selectedModel]);
+            const S = targetConc / C_sat;
+            logMessages.push(`Calculated T_clear: ${T_clear.toFixed(2)} °C`);
+            logMessages.push(`Calculated T_cloud: ${T_cloud.toFixed(2)} °C`);
+            logMessages.push(`C_sat at T_cloud: ${C_sat.toFixed(2)}`);
+            logMessages.push(`Calculated Supersaturation (S): ${S.toFixed(3)}`);
+
+            if (mszw < 0 || isNaN(mszw)) { 
+                recommendationsDiv.innerHTML = `<p>Warning: for concentration ${targetConc}, the model provides an invalid result (T_cloud > T_clear or calculation failed).</p>`;
+                logMessages.push(`ERROR: Invalid result (MSZW < 0 or NaN).`); updateLog(); return; 
+            }
+            
+            let html = `<h4>Analysis for Concentration: <span style="color: #0077b6;">${targetConc}</span> in ${selectedSystem}</h4>`;
+            html += `<p style="font-size: smaller; font-style: italic;">Calculations based on the <b>${selectedModel.charAt(0).toUpperCase() + selectedModel.slice(1)}</b> model.</p><ul>`;
+            html += `<li><b>Dissolution Temperature (estimated):</b> ${T_clear.toFixed(1)} °C</li>`;
+            html += `<li><b>Nucleation Temperature (estimated):</b> ${T_cloud.toFixed(1)} °C</li>`;
+            html += `<li><b>Metastable Zone Width (MSZW):</b> <strong style="color: #d9534f;">${mszw.toFixed(1)} °C</strong></li>`;
+            html += `<li><b>Supersaturation at Nucleation (S):</b> <strong style="color: #4caf50;">${S.toFixed(2)}</strong></li></ul>`;
+            recommendationsDiv.innerHTML = html;
+            updateLog();
+        }
+
+        document.getElementById('analyze-conc-btn').addEventListener('click', () => {
+            const concValue = document.getElementById('analysis-conc-input').value;
+            analyzeDataForConcentration(concValue);
+        });
+        document.getElementById('analysis-conc-input').addEventListener('keypress', function(e) { if (e.key === 'Enter') analyzeDataForConcentration(this.value); });
+        document.getElementById('model-selector').addEventListener('change', updateUI);
+        document.getElementById('system-selector').addEventListener('change', updateUI);
+        document.getElementById('calculate-yield-btn').addEventListener('click', calculateYield);
+
+        function updateYieldLabel() {
+            const selectedSystem = document.getElementById('system-selector').value;
+            document.getElementById('yield-system-label').textContent = selectedSystem;
+        }
+
+        function calculateYield() {
+            const resultP = document.getElementById('yield-result');
+            const startConc = parseFloat(document.getElementById('yield-conc-start').value);
+            const endTemp = parseFloat(document.getElementById('yield-temp-end').value);
+            const selectedSystem = document.getElementById('system-selector').value;
+            const selectedModel = document.getElementById('model-selector').value;
+            const solModel = models[selectedSystem] ? models[selectedSystem].solubility[selectedModel] : null;
+            logMessages.push(`--- Yield Calculation for ${selectedSystem} with ${selectedModel} model ---`);
+            logMessages.push(`C_start: ${startConc}, T_end: ${endTemp} °C`);
+
+            if (isNaN(startConc) || isNaN(endTemp) || startConc <= 0) { resultP.textContent = "Please enter valid values."; logMessages.push('ERROR: Invalid input values.'); updateLog(); return; }
+            if (!solModel) { resultP.textContent = "Solubility model is not available."; logMessages.push('ERROR: Solubility model not available.'); updateLog(); return; }
+
+            const C_final = getConcentrationFromModel(endTemp, solModel);
+            logMessages.push(`Calculated C_final at T_end: ${C_final.toFixed(2)}`);
+
+            if (startConc < C_final) { resultP.textContent = "No yield: initial concentration is lower than final solubility."; logMessages.push('INFO: No yield expected.'); updateLog(); return; }
+
+            const yieldPercent = ((startConc - C_final) / startConc) * 100;
+            resultP.innerHTML = `Estimated Theoretical Yield: <span style="color:#4caf50">${yieldPercent.toFixed(1)}%</span>`;
+            logMessages.push(`Calculated yield: ${yieldPercent.toFixed(2)}%`);
+
+            const startTemp = getTemperatureFromModel(startConc, solModel);
+            const yieldPath = [ {x: startTemp, y: startConc}, {x: endTemp, y: startConc}, {x: endTemp, y: C_final} ];
+            
+            const yieldDataset = { label: 'Yield Path', data: yieldPath, borderColor: '#4caf50', borderWidth: 2, borderDash: [5, 5], type: 'line', pointRadius: 4, pointBackgroundColor: '#4caf50', id: 'yield-path' };
+
+            const existingYieldIndex = myChart.data.datasets.findIndex(ds => ds.id === 'yield-path');
+            if (existingYieldIndex > -1) myChart.data.datasets.splice(existingYieldIndex, 1);
+            
+            myChart.data.datasets.push(yieldDataset);
+            myChart.update();
+            logMessages.push('Yield path visualized on chart.');
+            updateLog();
+        }
+
+
+        function runModelAnalysis() {
+            const solDiv = document.getElementById('solubility-model-results');
+            const nucDiv = document.getElementById('nucleation-model-results');
+            const selectedSystem = document.getElementById('system-selector').value;
+            
+            function displayModel(model) {
+                if (!model) return "<p>No models available for this system.</p>";
+                let html = ``;
+                const vh = model.vanthoff;
+                const poly = model.polynomial;
+                const linear = model.linear;
+
+                const availableModels = {};
+                if (vh) availableModels["Van 't Hoff"] = vh.r2;
+                if (poly) availableModels["Polynomial"] = poly.r2;
+                if (linear) availableModels["Linear"] = linear.r2;
+
+                if(vh) html += `<div><b>Van 't Hoff:</b> <span class="equation">${vh.equation}</span> (R² = ${vh.r2.toFixed(4)})</div>`;
+                if(poly) html += `<div style="margin-top:5px;"><b>Polynomial:</b> <span class="equation">${poly.equation}</span> (R² = ${poly.r2.toFixed(4)})</div>`;
+                if(linear) html += `<div style="margin-top:5px;"><b>Linear:</b> <span class="equation">${linear.equation}</span> (R² = ${linear.r2.toFixed(4)})</div>`;
+                
+                if(Object.keys(availableModels).length > 1) {
+                    const bestModel = Object.keys(availableModels).reduce((a, b) => availableModels[a] > availableModels[b] ? a : b);
+                    html += `<p style="font-style:italic; margin-top:10px;">The <b>${bestModel}</b> model seems to be the best fit (highest R²).</p>`;
+                }
+                
+                if (!poly) html += `<p style="font-style:italic; margin-top:5px; font-size:smaller;">Insufficient data for Polynomial model (requires at least 3 points).</p>`;
+                
+                return html;
+            }
+
+            if (models[selectedSystem]) {
+                solDiv.innerHTML = displayModel(models[selectedSystem].solubility);
+                nucDiv.innerHTML = displayModel(models[selectedSystem].nucleation);
+            } else {
+                solDiv.innerHTML = "<p>Select a system to see model details.</p>";
+                nucDiv.innerHTML = "<p>Select a system to see model details.</p>";
+            }
+        }
+
+        // --- GRAPHING AND LOG FUNCTIONS ---
+
+        document.getElementById('toggleLogBtn').addEventListener('click', () => {
+            const logContainer = document.getElementById('logContainer');
+            logContainer.style.display = logContainer.style.display === 'none' ? 'block' : 'none';
+        });
+        document.getElementById('exportChartBtn').addEventListener('click', () => {
+            if(myChart) {
+                const a = document.createElement('a');
+                a.href = myChart.toBase64Image();
+                a.download = 'MSZW_Chart.png';
+                a.click();
+            }
+        });
+        document.getElementById('exportTableBtn').addEventListener('click', exportTableToCSV);
+        
+        function exportTableToCSV() {
+            const table = document.getElementById('dataTable');
+            let csv = [];
+            for (let i = 0; i < table.rows.length; i++) {
+                let row = [], cols = table.rows[i].querySelectorAll('td, th');
+                for (let j = 0; j < cols.length -1; j++) {
+                    let cellText = cols[j].innerText.replace(/"/g, '""');
+                    if (cellText.includes(',')) {
+                        cellText = `"${cellText}"`;
+                    }
+                    row.push(cellText);
+                }
+                csv.push(row.join(','));
+            }
+            const csvFile = new Blob([csv.join('\n')], {type: 'text/csv'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(csvFile);
+            a.download = 'crystallization_data.csv';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        document.getElementById('exportDataBtn').addEventListener('click', () => {
+            let textToExport = "--- Crystallization Analysis Report ---\n\n";
+            const selectedSystem = document.getElementById('system-selector').value;
+            const selectedModel = document.getElementById('model-selector').value;
+            textToExport += `Selected System: ${selectedSystem}\n`;
+            textToExport += `Selected Model: ${selectedModel}\n\n`;
+            
+            textToExport += "--- Solubility Curve Model Parameters ---\n";
+            textToExport += document.getElementById('solubility-model-results').innerText + "\n\n";
+
+            textToExport += "--- Nucleation Curve Model Parameters ---\n";
+            textToExport += document.getElementById('nucleation-model-results').innerText + "\n\n";
+
+            textToExport += "--- Analysis by Concentration ---\n";
+            textToExport += document.getElementById('recommendations').innerText + "\n\n";
+
+            textToExport += "--- Yield Calculation ---\n";
+            textToExport += `Initial Concentration: ${document.getElementById('yield-conc-start').value}\n`;
+            textToExport += `Final Temperature: ${document.getElementById('yield-temp-end').value} °C\n`;
+            textToExport += document.getElementById('yield-result').innerText + "\n";
+
+            const blob = new Blob([textToExport], {type: 'text/plain'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'Crystallization_Analysis_Report.txt';
+            a.click();
+            URL.revokeObjectURL(a.href);
         });
 
-        // NUOVO: Funzione per popolare il menu a tendina
-        function updateConcentrationSelector(dataForChart) {
-            const selector = document.getElementById('concentrationSelector');
-            selector.innerHTML = ''; // Pulisce le opzioni vecchie
-            
-            // Crea un'opzione per ogni concentrazione unica
-            const uniqueConcentrations = [...new Set(dataForChart.map(d => d.conc))];
-            uniqueConcentrations.forEach(conc => {
-                const option = document.createElement('option');
-                option.value = conc;
-                option.text = `${conc}`; // Testo visualizzato nell'opzione
-                selector.appendChild(option);
-            });
+        function updateLog() {
+            const logContainer = document.getElementById('logContainer');
+            logContainer.innerHTML = logMessages.join('\n');
+            logContainer.scrollTop = logContainer.scrollHeight;
         }
 
+        function getChartOptions(title, xLabel, yLabel) {
+            return {
+                responsive: true,
+                maintainAspectRatio: true,
+                onClick: (evt, elements) => {
+                    if (elements.length === 0) return;
+                    const { datasetIndex, index } = elements[0];
+                    const dataset = myChart.data.datasets[datasetIndex];
+                    const systemMatch = dataset.label.match(/\((.*?)\)/);
+                    if (!systemMatch) return;
+                    const system = systemMatch[1];
+                    const point = dataset.data[index];
+                    
+                    const systemData = dataBySystem[system];
+                    if(!systemData) return;
 
-        function drawChart(clearData, cloudData) {
+                    const originalDataPoint = systemData.find(d => d.conc === point.y && (d.clear === point.x || d.cloud === point.x));
+                    if (originalDataPoint) {
+                        const allRows = tableBody.querySelectorAll('tr');
+                        allRows.forEach(row => row.classList.remove('highlighted'));
+                        const targetRow = allRows[originalDataPoint.originalRowIndex];
+                        targetRow.classList.add('highlighted');
+                        targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                },
+                scales: { x: { title: { display: true, text: xLabel } }, y: { title: { display: true, text: yLabel } } }, 
+                plugins: { 
+                    title: { display: true, text: title, font: {size: 16}},
+                    legend: { position: 'top' },
+                    zoom: {
+                        pan: { enabled: true, mode: 'xy' },
+                        zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' },
+                        limits: { x: {min: 'original', max: 'original'}, y: {min: 'original', max: 'original'} }
+                    }
+                }
+            };
+        }
+        
+        function buildChartToggles() {
+            const container = document.getElementById('chart-toggles');
+            container.innerHTML = '';
+            for (const system in dataBySystem) {
+                const div = document.createElement('div');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `toggle-${system.replace(/[^a-zA-Z0-9]/g, '')}`;
+                checkbox.checked = true;
+                checkbox.dataset.system = system;
+                checkbox.onchange = () => drawPrimaryChart();
+                const label = document.createElement('label');
+                label.htmlFor = checkbox.id;
+                label.textContent = system;
+                div.appendChild(checkbox);
+                div.appendChild(label);
+                container.appendChild(div);
+            }
+            const div = document.createElement('div');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = 'toggle-mszw-area';
+            checkbox.checked = true;
+            checkbox.onchange = () => drawPrimaryChart();
+            const label = document.createElement('label');
+            label.htmlFor = checkbox.id;
+            label.textContent = 'Show Metastable Zone (Shaded Area)';
+            div.appendChild(checkbox);
+            div.appendChild(label);
+            container.appendChild(div);
+        }
+
+        function drawPrimaryChart() {
             const ctx = document.getElementById('crystallizationChart').getContext('2d');
             if (myChart) myChart.destroy();
+            
+            const selectedModel = document.getElementById('model-selector').value;
+            const showMSZWArea = document.getElementById('toggle-mszw-area')?.checked ?? true;
+            const datasets = [];
+            let colorIndex = 0;
+
+            for (const system in dataBySystem) {
+                const systemCheckbox = document.getElementById(`toggle-${system.replace(/[^a-zA-Z0-9]/g, '')}`);
+                if (systemCheckbox && !systemCheckbox.checked) {
+                    colorIndex++;
+                    continue;
+                }
+
+                const systemData = dataBySystem[system];
+                const clearData = systemData.map(d => ({x: d.clear, y: d.conc}));
+                const cloudData = systemData.map(d => ({x: d.cloud, y: d.conc}));
+                const color = colorPalette[colorIndex % colorPalette.length];
+                
+                const solModel = models[system] ? models[system].solubility[selectedModel] : null;
+                const nucModel = models[system] ? models[system].nucleation[selectedModel] : null;
+            
+                function generateModelCurve(model, dataPoints) {
+                    if (!model || dataPoints.length === 0) return [];
+                    const curve = [];
+                    const tempRange = dataPoints.map(p => p.x);
+                    const minTemp = Math.min(...tempRange) - 10;
+                    const maxTemp = Math.max(...tempRange) + 10;
+                    const numPoints = 100;
+
+                    for (let i = 0; i < numPoints; i++) {
+                        const temp = minTemp + (maxTemp - minTemp) * i / (numPoints - 1);
+                        const conc = getConcentrationFromModel(temp, model);
+                        if (!isNaN(conc) && conc > 0) curve.push({x: temp, y: conc});
+                    }
+                    return curve.sort((a,b) => a.x - b.x);
+                }
+
+                const solCurve = generateModelCurve(solModel, clearData);
+                const nucCurve = generateModelCurve(nucModel, cloudData);
+
+                datasets.push({ label: `Solubility (${system})`, data: solCurve, type: 'line', borderColor: color, borderWidth: 2.5, pointRadius: 0, fill: showMSZWArea ? '+1' : false, backgroundColor: color.replace(')', ', 0.1)').replace('rgb', 'rgba') });
+                datasets.push({ label: `Nucleation (${system})`, data: nucCurve, type: 'line', borderColor: color, borderDash: [5,5], borderWidth: 2.5, pointRadius: 0 });
+                datasets.push({ label: `Clear Points (${system})`, data: clearData, backgroundColor: color, pointRadius: 5, type: 'scatter' });
+                datasets.push({ label: `Cloud Points (${system})`, data: cloudData, backgroundColor: color, pointStyle: 'rect', pointRadius: 5, type: 'scatter' });
+                
+                colorIndex++;
+            }
+
             myChart = new Chart(ctx, {
-                type: 'line', data: { datasets: [{ label: 'Curva di Solubilità (Clear Point)', data: clearData, borderColor: 'rgb(21, 153, 172)', borderWidth: 2.5, tension: 0.2, pointRadius: 5, pointBackgroundColor: 'rgb(21, 153, 172)', fill: '+1', backgroundColor: 'rgba(255, 165, 0, 0.3)', }, { label: 'Curva di Nucleazione (Cloud Point)', data: cloudData, borderColor: 'rgb(255, 99, 132)', borderWidth: 2.5, tension: 0.2, pointRadius: 5, pointBackgroundColor: 'rgb(255, 99, 132)', fill: false }] },
-                options: { responsive: true, maintainAspectRatio: true, scales: { x: { type: 'linear', position: 'bottom', title: { display: true, text: 'Temperatura (°C)', font: { size: 14 } } }, y: { beginAtZero: false, title: { display: true, text: 'Concentrazione (g/L o %w/w)', font: { size: 14 } } } }, plugins: { title: { display: true, text: 'Mappa di Cristallizzazione', font: { size: 18 } }, legend: { position: 'top' }, tooltip: { callbacks: { label: function(context) { return `${context.dataset.label}: (${context.parsed.x.toFixed(1)} °C, ${context.parsed.y.toFixed(1)})`; } } } } }
+                type: 'scatter', 
+                data: { datasets: datasets },
+                options: getChartOptions('Metastable Zone Width (MSZW) Map', 'Temperature (°C)', 'Concentration')
             });
+            myChart.canvas.ondblclick = () => myChart.resetZoom();
         }
 
-        // MODIFICATO: La funzione ora accetta la concentrazione target come parametro
-        function analyzeData(targetConcentration, clearPoints, cloudPoints) {
-            const recommendationsDiv = document.getElementById('recommendations');
-            recommendationsDiv.innerHTML = ""; // Pulisce le vecchie raccomandazioni
+        document.getElementById('draw-phase-diagram-btn').addEventListener('click', drawPhaseDiagram);
 
-            const targetConc = parseFloat(targetConcentration);
-            if (isNaN(targetConc)) return;
+        function drawPhaseDiagram() {
+            const ctx = document.getElementById('phaseDiagramChart').getContext('2d');
+            if (phaseDiagramChart) phaseDiagramChart.destroy();
+            const targetConc = parseFloat(document.getElementById('phase-conc-input').value);
+            const selectedModel = document.getElementById('model-selector').value;
+            document.getElementById('phase-diagram-model-info').textContent = `Diagram generated using the ${selectedModel} model to predict temperatures.`;
 
-            // Trova i punti clear e cloud per la concentrazione selezionata
-            const targetClearPoint = clearPoints.find(p => p.y === targetConc);
-            const targetCloudPoint = cloudPoints.find(p => p.y === targetConc);
+            if(isNaN(targetConc)) { alert("Please enter a valid concentration for the phase diagram."); return; }
 
-            if (!targetClearPoint || !targetCloudPoint) {
-                recommendationsDiv.innerHTML = `<p>Dati non trovati per la concentrazione ${targetConc}.</p>`;
-                return;
+            const clearData = [];
+            const cloudData = [];
+            let solvent2Name = 'Solvent 2';
+
+            for (const system in dataBySystem) {
+                const systemData = dataBySystem[system];
+                const d = systemData[0]; // Use first point to get solvent info
+                if (d && d.s2Name) {
+                    solvent2Name = d.s2Name;
+                    const solModel = models[system] ? models[system].solubility[selectedModel] : null;
+                    const nucModel = models[system] ? models[system].nucleation[selectedModel] : null;
+                    if (solModel && nucModel) {
+                        const clearTemp = getTemperatureFromModel(targetConc, solModel);
+                        const cloudTemp = getTemperatureFromModel(targetConc, nucModel);
+                        if (!isNaN(clearTemp) && !isNaN(cloudTemp)) {
+                             clearData.push({x: d.s2Perc, y: clearTemp});
+                             cloudData.push({x: d.s2Perc, y: cloudTemp});
+                        }
+                    }
+                }
             }
-            
-            const T_clear = targetClearPoint.x;
-            const T_cloud = targetCloudPoint.x;
-            const mszw = T_clear - T_cloud;
 
-            if (mszw < 0) {
-                 recommendationsDiv.innerHTML = `<p>Attenzione: per la concentrazione ${targetConc}, la temperatura di Cloud Point (${T_cloud}°C) è maggiore di quella di Clear Point (${T_clear}°C). Controllare i dati.</p>`;
-                 return;
-            }
-
-            const seedingTemp = T_clear - (mszw * 0.4); // Suggerimento al 40% della MSZW
+            if(clearData.length < 2) { alert(`Not enough data points with a second solvent found to draw a diagram.`); return; }
             
-            let html = `<h4>Analisi per Concentrazione: <span style="color: #0077b6;">${targetConc}</span></h4><ul>`;
-            html += `<li><b>Temperatura di dissoluzione:</b> ${T_clear.toFixed(1)} °C</li>`;
-            html += `<li><b>Temperatura di nucleazione:</b> ${T_cloud.toFixed(1)} °C</li>`;
-            html += `<li><b>Ampiezza Zona Metastabile (MSZW):</b> <strong style="color: #d9534f;">${mszw.toFixed(1)} °C</strong></li></ul>`;
-            html += `<h4>Strategia di Cristallizzazione Suggerita:</h4><ol>`;
-            html += `<li>Raffreddare la soluzione da <strong>${T_clear.toFixed(1)} °C</strong> fino a circa <strong>${seedingTemp.toFixed(1)} °C</strong>.</li>`;
-            html += `<li>A <strong>${seedingTemp.toFixed(1)} °C</strong>, introdurre i cristalli di semina (seeding).</li>`;
-            html += `<li>Mantenere la temperatura per la maturazione, poi raffreddare lentamente per massimizzare la resa.</li></ol>`;
-            recommendationsDiv.innerHTML = html;
+            clearData.sort((a,b)=>a.x - b.x);
+            cloudData.sort((a,b)=>a.x - b.x);
+
+            const clearModel = regression.polynomial(clearData.map(p=>[p.x, p.y]), {order: 2});
+            const cloudModel = regression.polynomial(cloudData.map(p=>[p.x, p.y]), {order: 2});
+            
+            const clearCurve = clearData.map(p => ({x: p.x, y: clearModel.predict(p.x)[1]}));
+            const cloudCurve = cloudData.map(p => ({x: p.x, y: cloudModel.predict(p.x)[1]}));
+
+            phaseDiagramChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        { label: `Solubility (C=${targetConc})`, data: clearData, backgroundColor: 'rgb(21, 153, 172)', pointRadius: 6 },
+                        { label: `Nucleation (C=${targetConc})`, data: cloudData, backgroundColor: 'rgb(255, 99, 132)', pointRadius: 6, pointStyle: 'rect' },
+                        { label: `Solubility Fit`, data: clearCurve, type: 'line', borderColor: 'rgb(21, 153, 172)', borderWidth: 2, pointRadius: 0 },
+                        { label: `Nucleation Fit`, data: cloudCurve, type: 'line', borderColor: 'rgb(255, 99, 132)', borderWidth: 2, pointRadius: 0, borderDash: [5,5] },
+                    ]
+                },
+                options: getChartOptions(`Phase Diagram at C = ${targetConc}`, `% ${solvent2Name}`, 'Temperature (°C)')
+            });
+            phaseDiagramChart.canvas.ondblclick = () => phaseDiagramChart.resetZoom();
         }
 
-        // --- ESECUZIONE INIZIALE ---
+        // --- SESSION MANAGEMENT ---
+        document.getElementById('saveSessionBtn').addEventListener('click', saveSession);
+        document.getElementById('loadSessionBtn').addEventListener('click', () => {
+            const fileInput = document.getElementById('fileInput');
+            fileInput.accept = ".json";
+            fileInput.onchange = handleFile;
+            fileInput.click();
+        });
+
+        function saveSession() {
+            const tableData = [];
+            const rows = tableBody.querySelectorAll('tr');
+            rows.forEach(row => {
+                const rowData = [];
+                const cells = row.querySelectorAll('td');
+                for(let i=0; i<cells.length-1; i++) { // Exclude delete button
+                    rowData.push(cells[i].innerText);
+                }
+                tableData.push(rowData);
+            });
+
+            const sessionState = {
+                tableData: tableData,
+                analysisConc: document.getElementById('analysis-conc-input').value,
+                phaseConc: document.getElementById('phase-conc-input').value,
+                yieldStartConc: document.getElementById('yield-conc-start').value,
+                yieldEndTemp: document.getElementById('yield-temp-end').value,
+                selectedSystem: document.getElementById('system-selector').value,
+                selectedModel: document.getElementById('model-selector').value
+            };
+
+            const blob = new Blob([JSON.stringify(sessionState, null, 2)], {type: 'application/json'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'crystallization_session.json';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        function loadSession(jsonData) {
+            try {
+                const sessionState = JSON.parse(jsonData);
+                populateTable(sessionState.tableData);
+                document.getElementById('analysis-conc-input').value = sessionState.analysisConc || '';
+                document.getElementById('phase-conc-input').value = sessionState.phaseConc || '';
+                document.getElementById('yield-conc-start').value = sessionState.yieldStartConc || '';
+                document.getElementById('yield-temp-end').value = sessionState.yieldEndTemp || '';
+                
+                processDataFromTable(); // Reprocess data first to populate selectors
+
+                document.getElementById('system-selector').value = sessionState.selectedSystem || '';
+                document.getElementById('model-selector').value = sessionState.selectedModel || 'vanthoff';
+
+                updateUI(); // Update UI again with loaded selections
+            } catch (error) {
+                alert('Failed to load session file. It may be corrupted.');
+                console.error("Session load error:", error);
+            }
+        }
+
+        // --- INITIAL EXECUTION ---
         document.addEventListener('DOMContentLoaded', () => {
-            populateTable([ ['100', '60', '50'], ['120', '68', '58'], ['140', '75', '65'], ['160', '82', '71'] ]);
-            processDataFromTable();
+            createRow(); // Start with one empty row
         });
     </script>
 </body>
