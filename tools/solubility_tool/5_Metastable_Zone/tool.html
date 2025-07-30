@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crystallization Tool - v22 Session & Phase Diagram Fix</title>
+    <title>Crystallization Tool - v31 English Translation</title>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
@@ -19,7 +19,7 @@
         
         .table-container { overflow-x: auto; }
         #dataTable { width: 100%; border-collapse: collapse; margin-top: 15px; min-width: 900px; }
-        #dataTable th, #dataTable td { border: 1px solid #ddd; padding: 8px; text-align: center; transition: background-color 0.3s; }
+        #dataTable th, #dataTable td { border: 1px solid #ddd; padding: 8px; text-align: center; transition: background-color: 0.3s; }
         #dataTable th { background-color: #eef7f9; }
         #dataTable td[contenteditable="true"]:focus { background-color: #f0f8ff; outline: 2px solid #0077b6; }
         #dataTable tr.highlighted td { background-color: #fff3cd; }
@@ -29,7 +29,7 @@
         #exportTableBtn { background-color: #17a2b8; color: white; margin-left: 10px;}
         #importTableBtn { background-color: #6c757d; color: white; margin-left: 10px;}
         
-        #processButton { display: block; width: 100%; padding: 12px; margin-top: 20px; background-color: #0077b6; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; transition: background-color 0.3s; }
+        #processButton { display: block; width: 100%; padding: 12px; margin-top: 20px; background-color: #0077b6; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; transition: background-color: 0.3s; }
         #processButton:hover { background-color: #023e8a; }
 
         .chart-section, .results-section { margin-top: 30px; }
@@ -39,11 +39,12 @@
         .input-group input, .input-group select { padding: 5px; border-radius: 4px; border: 1px solid #ccc; margin: 0 5px; }
         .input-group button { padding: 5px 10px; }
 
-        .equation { font-family: 'Courier New', Courier, monospace; background-color: #e3e3e3; padding: 5px; border-radius: 4px; display: inline-block; margin-top: 5px;}
+        .equation { font-family: 'Courier New', Courier, monospace; background-color: #e3e3e3; padding: 5px 8px; border-radius: 4px; display: inline-block; margin: 5px 0; white-space: pre-wrap; word-wrap: break-word; }
         #logContainer { display:none; background-color: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 5px; margin-top: 10px; font-family: 'Courier New', monospace; white-space: pre-wrap; max-height: 300px; overflow-y: auto; font-size: 12px; }
         
         #intro-container { background-color: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 5px; padding: 15px; margin-top: 15px; }
         #chart-toggles { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 10px; }
+        .error-msg { color: #d9534f; font-style: italic; font-size: smaller; }
     </style>
 </head>
 <body>
@@ -54,7 +55,9 @@
             <h3>Theoretical Introduction</h3>
             <p>This tool analyzes the solubility and metastable zone width (MSZW) of a solute in a solvent. The <b>solubility curve</b> (or clear point curve) represents the thermodynamic limit above which the solid phase dissolves completely. The <b>nucleation curve</b> (or cloud point curve) represents the kinetic limit where spontaneous nucleation begins upon cooling. The region between these two curves is the <b>Metastable Zone</b>, a supersaturated state where crystallization can be controlled.</p>
             <h4>The Van 't Hoff Equation</h4>
-            <p>The relationship between solubility (expressed as concentration, C) and absolute temperature (T) is described by the <b>Van 't Hoff equation</b>. Its linear form is fundamental for thermodynamic analysis:</p>
+            <p>The relationship between solubility (expressed as concentration, C) and absolute temperature (T) is described by the <b>Van 't Hoff equation</b>. Its exponential form is:</p>
+            <div class="equation" style="text-align: center; width: 90%; margin: auto;">C = e<sup>(ΔS/R)</sup> * e<sup>(-ΔH/RT)</sup></div>
+            <p style="margin-top:10px;">By applying the natural logarithm, we get the <b>linear form</b>, which is fundamental for thermodynamic analysis:</p>
             <div class="equation" style="text-align: center; width: 90%; margin: auto;">ln(C) = - (ΔH / R) * (1/T) + (ΔS / R)</div>
             <p style="margin-top:10px;">Where:
                 <ul>
@@ -63,12 +66,10 @@
                     <li><b>R</b> is the ideal gas constant (8.314 J/mol·K).</li>
                 </ul>
             By plotting <b>ln(C)</b> versus <b>1/T</b>, we obtain a straight line. The slope of this line is <b>-ΔH/R</b>, and the y-intercept is <b>ΔS/R</b>. This tool uses this linear regression to calculate the thermodynamic parameters from your solubility data.</p>
-            <h4>Other Models</h4>
-            <p>While the Van 't Hoff model has a strong theoretical basis, empirical models like <b>Linear</b> (C = mT + c) or <b>Polynomial</b> (C = aT² + bT + c) can sometimes provide a better fit for experimental data in non-ideal systems. This tool calculates all three models, allowing you to choose the one with the highest R² value for your analyses.</p>
         </div>
 
         <div class="input-section" style="margin-top: 30px;">
-            <h2>1. Input Data</h2>
+            <h2>1. Data Input</h2>
             <p>Edit the data directly or add new rows. Press the button at the bottom to update charts and analysis.</p>
             <div class="table-container">
                 <table id="dataTable">
@@ -80,7 +81,7 @@
             <button id="importTableBtn">Import Table (CSV/XLSX)</button>
             <button id="exportTableBtn">Export Table (CSV)</button>
             <input type="file" id="fileInput" accept=".csv, .xlsx, .xls, .json" style="display: none;">
-            <button id="processButton">Create/Update Chart and Analysis</button>
+            <button id="processButton">Create/Update Charts and Analysis</button>
         </div>
 
         <div class="chart-section">
@@ -96,24 +97,8 @@
         </div>
         
         <div class="results-section">
-            <div class="phase-diagram-section">
-                <h2>3. Phase Diagram: Temperature vs. Solvent Composition</h2>
-                <div class="analysis-container" style="border-left-color: #9c27b0;">
-                    <p>Analyze how solubility changes with the solvent ratio at a fixed concentration.</p>
-                    <div class="input-group">
-                        <label for="phase-conc-input">Fixed Concentration:</label>
-                        <input type="number" id="phase-conc-input" placeholder="e.g., 100">
-                        <button id="draw-phase-diagram-btn">Generate Diagram</button>
-                    </div>
-                    <div class="chart-section" style="margin-top:10px;">
-                        <canvas id="phaseDiagramChart"></canvas>
-                    </div>
-                     <p id="phase-diagram-model-info" style="font-size: smaller; font-style: italic; text-align: center;"></p>
-                </div>
-            </div>
-
             <div class="models-section" style="margin-top: 30px;">
-                <h2>4. Fit Model Analysis</h2>
+                <h2>3. Fit Model Analysis</h2>
                  <div class="input-group">
                     <label for="system-selector">Select solvent system to analyze:</label>
                     <select id="system-selector"></select>
@@ -137,9 +122,41 @@
                     </div>
                 </div>
             </div>
+            
+            <div class="residuals-analysis-section" style="margin-top: 30px;">
+                <h2>4. Residuals Analysis</h2>
+                <div class="analysis-container" style="border-left-color: #6a0dad;">
+                    <p>This chart helps diagnose the quality of the fit. A good model shows residuals (differences between observed and predicted data) randomly scattered around the zero line, with no obvious patterns.</p>
+                    <div class="input-group">
+                        <label for="residuals-selector">Select model to analyze:</label>
+                        <select id="residuals-selector"></select>
+                    </div>
+                    <div class="chart-section" style="margin-top:10px;">
+                        <canvas id="residualsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="vanthoff-analysis-section" style="margin-top: 30px;">
+                <h2>5. Van 't Hoff Thermodynamic Analysis</h2>
+                <p>This section analyzes the data according to the linearized Van 't Hoff equation to extract thermodynamic parameters.</p>
+                <div class="chart-section" style="margin-top:10px;">
+                    <canvas id="vanthoffChart"></canvas>
+                </div>
+                <div class="analysis-container" style="border-left-color: #fca311; margin-top: 15px;">
+                    <div id="vanthoff-explanation" style="padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid #ddd;">
+                        <h4>Why use two different forms?</h4>
+                        <p style="font-size: smaller; margin:0;">
+                            The <b>linear form</b> (the chart above) is used for the "fit" because it allows for robust and simple linear regression to find the thermodynamic parameters (ΔH and ΔS). Once found, the more intuitive <b>exponential form</b> is used to make all concentration and temperature predictions throughout the tool.
+                        </p>
+                    </div>
+                    <div id="vanthoff-analysis-results"></div>
+                </div>
+            </div>
 
             <div class="point-analysis-section" style="margin-top: 30px;">
-                <h2>5. Analysis by Concentration</h2>
+                <h2>6. Analysis by Concentration</h2>
                 <div class="input-group">
                     <label for="analysis-conc-input">Enter a concentration to analyze:</label>
                     <input type="number" id="analysis-conc-input" placeholder="e.g., 110">
@@ -151,7 +168,7 @@
             </div>
 
             <div class="yield-section" style="margin-top: 30px;">
-                <h2>6. Crystallization Yield Calculation</h2>
+                <h2>7. Crystallization Yield Calculation</h2>
                 <div class="analysis-container" style="border-left-color: #4caf50;">
                     <p>Calculate the theoretical yield for the system <b id="yield-system-label"></b> based on the selected solubility model.</p>
                     <div class="input-group">
@@ -169,14 +186,47 @@
                 </div>
             </div>
 
+            <div class="phase-diagram-section" style="margin-top: 30px;">
+                <h2>8. Phase Diagram: Temperature vs. Solvent Composition</h2>
+                <div class="analysis-container" style="border-left-color: #9c27b0;">
+                    <div id="phase-diagram-intro" style="padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid #ddd;">
+                        <h4>Introduction to Phase Diagram Models</h4>
+                        <p style="font-size: smaller; margin:0;">
+                            This section models how the solubility/nucleation temperature changes with the ratio of two solvents.
+                            <ul>
+                                <li><b>Jouyban-Acree:</b> A semi-empirical model that describes deviations from ideal behavior through interaction parameters (A₀, A₁, A₂). It is the most accurate model if sufficient data is available.</li>
+                                <li><b>Ideal Mixture:</b> A theoretical model (based on the Yalkowsky-Roseman equation) that shows how the system would behave without specific interactions between components. It is useful as a baseline.</li>
+                                <li><b>Polynomial:</b> A simple mathematical model that fits a curve to the data points, without physical meaning. Useful for a quick visualization.</li>
+                            </ul>
+                            <p style="font-size: smaller; margin-top: 5px;"><b>Note:</b> If increasing the "Fixed Concentration" makes the curve go down, it means the input data describes an exothermic dissolution process (less soluble at higher temperatures), and the model is correctly reflecting this.</p>
+                        </p>
+                    </div>
+                    <div class="input-group">
+                        <label for="phase-conc-input">Fixed Concentration:</label>
+                        <input type="number" id="phase-conc-input" placeholder="e.g., 100">
+                        <label for="phase-diagram-model-selector" style="margin-left: 15px;">Model:</label>
+                        <select id="phase-diagram-model-selector">
+                            <option value="jouyban-acree">Jouyban-Acree</option>
+                            <option value="ideal-mixture">Ideal Mixture</option>
+                            <option value="polynomial">Polynomial</option>
+                        </select>
+                        <button id="draw-phase-diagram-btn" style="margin-left: 15px;">Generate Diagram</button>
+                    </div>
+                    <div id="phase-diagram-model-analysis"></div>
+                    <div class="chart-section" style="margin-top:10px;">
+                        <canvas id="phaseDiagramChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
             <div class="log-section" style="margin-top: 30px;">
-                <h2>7. Calculation Log</h2>
+                <h2>9. Calculation Log</h2>
                 <button id="toggleLogBtn" class="input-group button">Show/Hide Log</button>
                 <div id="logContainer"></div>
             </div>
 
             <div class="export-section" style="margin-top: 30px;">
-                <h2>8. Export & Session Management</h2>
+                <h2>10. Export & Session Management</h2>
                 <div class="input-group">
                     <button id="exportDataBtn">Export Analysis Data (TXT)</button>
                     <button id="saveSessionBtn" style="margin-left: 10px; background-color: #ffc107;">Save Session</button>
@@ -190,9 +240,12 @@
         // --- GLOBALS ---
         let myChart = null;
         let phaseDiagramChart = null;
+        let vanthoffChart = null;
+        let residualsChart = null;
         let models = {};
         let dataBySystem = {};
         let logMessages = [];
+        const R = 8.314; // J/mol·K
         const colorPalette = ['#3e95cd', '#8e5ea2', '#3cba9f', '#e8c3b9', '#c45850', '#ff9f40', '#ff6384', '#36a2eb', '#cc65fe', '#ffce56'];
 
         // --- UI MANAGEMENT ---
@@ -272,31 +325,66 @@
             rows.forEach((row, index) => {
                 const cells = row.querySelectorAll('td');
                 if (cells.length < 8) return;
+
+                // --- Data reading ---
                 const concentration = parseFloat(cells[1].innerText.replace(',', '.'));
-                const solvent1 = (cells[2].innerText || '').trim();
-                const s1Perc = parseFloat(cells[3].innerText.replace(',', '.'));
-                const solvent2 = (cells[4].innerText || '').trim();
-                const s2Perc = parseFloat(cells[5].innerText.replace(',', '.'));
+                let solvent1Name = (cells[2].innerText || '').trim();
+                let s1Perc = parseFloat(cells[3].innerText.replace(',', '.'));
+                let solvent2Name = (cells[4].innerText || '').trim();
+                let s2Perc = parseFloat(cells[5].innerText.replace(',', '.'));
                 const tempClear = parseFloat(cells[6].innerText.replace(',', '.'));
                 const tempCloud = parseFloat(cells[7].innerText.replace(',', '.'));
-                
-                if (!isNaN(concentration) && !isNaN(tempClear) && !isNaN(tempCloud) && solvent1) {
-                    const systemKey = solvent2 ? `${solvent1}/${solvent2} ${s1Perc}/${s2Perc}` : `${solvent1} (100%)`;
-                    if (!dataBySystem[systemKey]) {
-                        dataBySystem[systemKey] = [];
-                    }
-                    dataBySystem[systemKey].push({
-                        conc: concentration,
-                        clear: tempClear,
-                        cloud: tempCloud,
-                        s1Name: solvent1, s1Perc: s1Perc,
-                        s2Name: solvent2, s2Perc: s2Perc,
-                        originalRowIndex: index
-                    });
+
+                // --- Validation and Cleanup ---
+                if (isNaN(concentration) || concentration <= 0 || isNaN(tempClear) || isNaN(tempCloud)) {
+                    return; // Skip row if core numbers are invalid
                 }
+                if (!solvent1Name && !solvent2Name) {
+                    return; // Skip row if no solvent is named
+                }
+
+                // --- Logic for pure solvents (Handles user entering 100% in either column) ---
+                if (solvent2Name && !solvent1Name && s2Perc === 100) {
+                    solvent1Name = solvent2Name;
+                    s1Perc = 100;
+                    solvent2Name = '';
+                    s2Perc = 0;
+                }
+                
+                // Default percentages if not specified for a single solvent system
+                if (solvent1Name && !solvent2Name && isNaN(s1Perc)) {
+                    s1Perc = 100;
+                }
+                if (isNaN(s2Perc)) {
+                    s2Perc = 0;
+                }
+                 if (isNaN(s1Perc)) {
+                    s1Perc = 100 - s2Perc;
+                }
+
+
+                // --- System Key Creation ---
+                const systemKey = solvent2Name && s2Perc > 0
+                    ? `${solvent1Name}/${solvent2Name} ${s1Perc}/${s2Perc}`
+                    : `${solvent1Name} (100%)`;
+
+                // --- Data push ---
+                if (!dataBySystem[systemKey]) {
+                    dataBySystem[systemKey] = [];
+                }
+                dataBySystem[systemKey].push({
+                    conc: concentration,
+                    clear: tempClear,
+                    cloud: tempCloud,
+                    s1Name: solvent1Name,
+                    s1Perc: s1Perc,
+                    s2Name: solvent2Name,
+                    s2Perc: s2Perc,
+                    originalRowIndex: index
+                });
             });
 
-            if (Object.keys(dataBySystem).length === 0) { alert("No valid data systems found for analysis."); return; }
+            if (Object.keys(dataBySystem).length === 0) { alert("No valid data found for analysis."); return; }
 
             models = {};
             for (const system in dataBySystem) {
@@ -340,6 +428,10 @@
             buildChartToggles();
             drawPrimaryChart();
             runModelAnalysis();
+            updateResidualsSelector();
+            drawResidualsChart();
+            drawVanthoffChart();
+            updateVanthoffAnalysis();
             const defaultConc = document.getElementById('analysis-conc-input').value || document.getElementById('dataTableBody').rows[0]?.cells[1].innerText;
             if (defaultConc) {
                 document.getElementById('analysis-conc-input').value = defaultConc;
@@ -349,29 +441,53 @@
         }
 
         // --- ANALYSIS AND CALCULATION FUNCTIONS ---
+        function calculateSER(data, model, isVanthoff = false) {
+            if (data.length === 0) return 0;
+            let sumOfSquaredErrors = 0;
+            if (isVanthoff) {
+                // For Van't Hoff, data is already transformed: [[1/T, ln(C)], ...]
+                for(const p of data) {
+                    const predictedY = model.slope * p[0] + model.intercept;
+                    sumOfSquaredErrors += Math.pow(p[1] - predictedY, 2);
+                }
+            } else {
+                 // For other models, data is: [{x: T, y: C}, ...]
+                for(const p of data) {
+                    const predictedY = getConcentrationFromModel(p.x, model);
+                    sumOfSquaredErrors += Math.pow(p.y - predictedY, 2);
+                }
+            }
+            return Math.sqrt(sumOfSquaredErrors / data.length);
+        }
 
         function performVanthoffRegression(points, name) {
             const transformed = points.map(p => [1 / (p.x + 273.15), Math.log(p.y)]);
             if (transformed.length < 2) { logMessages.push(`[${name} - Van't Hoff]: Insufficient data (requires >= 2 points).`); return null; }
             const result = regression.linear(transformed);
-            logMessages.push(`[${name} - Van't Hoff]: Model calculated. R² = ${result.r2.toFixed(4)}`);
-            return { type: 'vanthoff', slope: result.equation[0], intercept: result.equation[1], r2: result.r2, equation: result.string };
+            const model = { type: 'vanthoff', points: points, slope: result.equation[0], intercept: result.equation[1], r2: result.r2, equation: result.string, transformedPoints: transformed };
+            model.ser = calculateSER(transformed, model, true);
+            logMessages.push(`[${name} - Van't Hoff]: Model calculated. R² = ${result.r2.toFixed(4)}, SER = ${model.ser.toFixed(4)}`);
+            return model;
         }
 
         function performPolynomialRegression(points, name) {
             const data = points.map(p => [p.x, p.y]);
             if (data.length < 3) { logMessages.push(`[${name} - Polynomial]: Insufficient data (requires >= 3 points).`); return null; }
             const result = regression.polynomial(data, { order: 2 });
-            logMessages.push(`[${name} - Polynomial]: Model calculated. R² = ${result.r2.toFixed(4)}`);
-            return { type: 'polynomial', coeffs: result.equation, r2: result.r2, equation: result.string };
+            const model = { type: 'polynomial', points: points, coeffs: result.equation, r2: result.r2, equation: result.string };
+            model.ser = calculateSER(points, model);
+            logMessages.push(`[${name} - Polynomial]: Model calculated. R² = ${result.r2.toFixed(4)}, SER = ${model.ser.toFixed(4)}`);
+            return model;
         }
 
         function performLinearRegression(points, name) {
             const data = points.map(p => [p.x, p.y]);
             if (data.length < 2) { logMessages.push(`[${name} - Linear]: Insufficient data (requires >= 2 points).`); return null; }
             const result = regression.linear(data, { precision: 4 });
-            logMessages.push(`[${name} - Linear]: Model calculated. R² = ${result.r2.toFixed(4)}`);
-            return { type: 'linear', coeffs: result.equation, r2: result.r2, equation: result.string };
+            const model = { type: 'linear', points: points, coeffs: result.equation, r2: result.r2, equation: result.string };
+            model.ser = calculateSER(points, model);
+            logMessages.push(`[${name} - Linear]: Model calculated. R² = ${result.r2.toFixed(4)}, SER = ${model.ser.toFixed(4)}`);
+            return model;
         }
 
         function getConcentrationFromModel(temp, model) {
@@ -404,6 +520,27 @@
                  return (1 / tempK_inv) - 273.15;
             }
         }
+        
+        function getTemperatureError(targetConc, model) {
+            if (!model || !model.ser || isNaN(model.ser) || targetConc <=0) return 0;
+
+            let cUpper, cLower;
+            if (model.type === 'vanthoff') {
+                cUpper = targetConc * Math.exp(model.ser);
+                cLower = targetConc / Math.exp(model.ser);
+            } else {
+                cUpper = targetConc + model.ser;
+                cLower = targetConc - model.ser;
+            }
+
+            const tUpper = getTemperatureFromModel(cUpper, model);
+            const tLower = getTemperatureFromModel(cLower, model);
+
+            if (isNaN(tUpper) || isNaN(tLower)) return 0;
+
+            return Math.abs(tUpper - tLower) / 2;
+        }
+
 
         function analyzeDataForConcentration(targetConcStr) {
             const recommendationsDiv = document.getElementById('recommendations');
@@ -416,18 +553,26 @@
                 recommendationsDiv.innerHTML = `<p>Please enter a valid, positive concentration.</p>`;
                 logMessages.push(`ERROR: Invalid concentration.`); updateLog(); return;
             }
-            if (!models[selectedSystem] || !models[selectedSystem].solubility[selectedModel] || !models[selectedSystem].nucleation[selectedModel]) { 
+            const solModel = models[selectedSystem] ? models[selectedSystem].solubility[selectedModel] : null;
+            const nucModel = models[selectedSystem] ? models[selectedSystem].nucleation[selectedModel] : null;
+
+            if (!solModel || !nucModel) { 
                 recommendationsDiv.innerHTML = `<p>Model not available for the selected system/model type.</p>`;
                 logMessages.push(`ERROR: Model ${selectedModel} for ${selectedSystem} not available.`); updateLog(); return; 
             };
 
-            const T_clear = getTemperatureFromModel(targetConc, models[selectedSystem].solubility[selectedModel]);
-            const T_cloud = getTemperatureFromModel(targetConc, models[selectedSystem].nucleation[selectedModel]);
+            const T_clear = getTemperatureFromModel(targetConc, solModel);
+            const T_cloud = getTemperatureFromModel(targetConc, nucModel);
             const mszw = T_clear - T_cloud;
-            const C_sat = getConcentrationFromModel(T_cloud, models[selectedSystem].solubility[selectedModel]);
+            
+            const T_clear_error = getTemperatureError(targetConc, solModel);
+            const T_cloud_error = getTemperatureError(targetConc, nucModel);
+            const mszw_error = Math.sqrt(Math.pow(T_clear_error, 2) + Math.pow(T_cloud_error, 2));
+
+            const C_sat = getConcentrationFromModel(T_cloud, solModel);
             const S = targetConc / C_sat;
-            logMessages.push(`Calculated T_clear: ${T_clear.toFixed(2)} °C`);
-            logMessages.push(`Calculated T_cloud: ${T_cloud.toFixed(2)} °C`);
+            logMessages.push(`Calculated T_clear: ${T_clear.toFixed(2)} ± ${T_clear_error.toFixed(2)} °C`);
+            logMessages.push(`Calculated T_cloud: ${T_cloud.toFixed(2)} ± ${T_cloud_error.toFixed(2)} °C`);
             logMessages.push(`C_sat at T_cloud: ${C_sat.toFixed(2)}`);
             logMessages.push(`Calculated Supersaturation (S): ${S.toFixed(3)}`);
 
@@ -438,9 +583,9 @@
             
             let html = `<h4>Analysis for Concentration: <span style="color: #0077b6;">${targetConc}</span> in ${selectedSystem}</h4>`;
             html += `<p style="font-size: smaller; font-style: italic;">Calculations based on the <b>${selectedModel.charAt(0).toUpperCase() + selectedModel.slice(1)}</b> model.</p><ul>`;
-            html += `<li><b>Dissolution Temperature (estimated):</b> ${T_clear.toFixed(1)} °C</li>`;
-            html += `<li><b>Nucleation Temperature (estimated):</b> ${T_cloud.toFixed(1)} °C</li>`;
-            html += `<li><b>Metastable Zone Width (MSZW):</b> <strong style="color: #d9534f;">${mszw.toFixed(1)} °C</strong></li>`;
+            html += `<li><b>Dissolution Temperature (estimated):</b> ${T_clear.toFixed(1)} ± ${T_clear_error.toFixed(1)} °C</li>`;
+            html += `<li><b>Nucleation Temperature (estimated):</b> ${T_cloud.toFixed(1)} ± ${T_cloud_error.toFixed(1)} °C</li>`;
+            html += `<li><b>Metastable Zone Width (MSZW):</b> <strong style="color: #d9534f;">${mszw.toFixed(1)} ± ${mszw_error.toFixed(1)} °C</strong></li>`;
             html += `<li><b>Supersaturation at Nucleation (S):</b> <strong style="color: #4caf50;">${S.toFixed(2)}</strong></li></ul>`;
             recommendationsDiv.innerHTML = html;
             updateLog();
@@ -514,15 +659,16 @@
                 if (poly) availableModels["Polynomial"] = poly.r2;
                 if (linear) availableModels["Linear"] = linear.r2;
 
-                if(vh) html += `<div><b>Van 't Hoff:</b> <span class="equation">${vh.equation}</span> (R² = ${vh.r2.toFixed(4)})</div>`;
-                if(poly) html += `<div style="margin-top:5px;"><b>Polynomial:</b> <span class="equation">${poly.equation}</span> (R² = ${poly.r2.toFixed(4)})</div>`;
-                if(linear) html += `<div style="margin-top:5px;"><b>Linear:</b> <span class="equation">${linear.equation}</span> (R² = ${linear.r2.toFixed(4)})</div>`;
+                if(vh) html += `<div><b>Van 't Hoff:</b> <span class="equation">${vh.equation}</span> (R² = ${vh.r2.toFixed(4)}; SER = ${vh.ser.toFixed(3)})</div>`;
+                if(poly) html += `<div style="margin-top:5px;"><b>Polynomial:</b> <span class="equation">${poly.equation}</span> (R² = ${poly.r2.toFixed(4)}; SER = ${poly.ser.toFixed(3)})</div>`;
+                if(linear) html += `<div style="margin-top:5px;"><b>Linear:</b> <span class="equation">${linear.equation}</span> (R² = ${linear.r2.toFixed(4)}; SER = ${linear.ser.toFixed(3)})</div>`;
                 
                 if(Object.keys(availableModels).length > 1) {
                     const bestModel = Object.keys(availableModels).reduce((a, b) => availableModels[a] > availableModels[b] ? a : b);
                     html += `<p style="font-style:italic; margin-top:10px;">The <b>${bestModel}</b> model seems to be the best fit (highest R²).</p>`;
                 }
                 
+                html += `<p style="font-size:smaller; margin-top:10px; font-style:italic;">Note: SER (Standard Error of Regression) for Van't Hoff is in ln(C) units; for other models it is in Concentration units.</p>`
                 if (!poly) html += `<p style="font-style:italic; margin-top:5px; font-size:smaller;">Insufficient data for Polynomial model (requires at least 3 points).</p>`;
                 
                 return html;
@@ -610,14 +756,17 @@
             logContainer.scrollTop = logContainer.scrollHeight;
         }
 
-        function getChartOptions(title, xLabel, yLabel) {
-            return {
+        function getChartOptions(title, xLabel, yLabel, extraOptions = {}) {
+            const options = {
                 responsive: true,
                 maintainAspectRatio: true,
                 onClick: (evt, elements) => {
-                    if (elements.length === 0) return;
+                    if (elements.length === 0 || !myChart) return;
                     const { datasetIndex, index } = elements[0];
                     const dataset = myChart.data.datasets[datasetIndex];
+                    // Don't trigger for model lines
+                    if(dataset.type === 'line') return;
+
                     const systemMatch = dataset.label.match(/\((.*?)\)/);
                     if (!systemMatch) return;
                     const system = systemMatch[1];
@@ -646,6 +795,8 @@
                     }
                 }
             };
+            Object.assign(options, extraOptions);
+            return options;
         }
         
         function buildChartToggles() {
@@ -741,62 +892,425 @@
 
         document.getElementById('draw-phase-diagram-btn').addEventListener('click', drawPhaseDiagram);
 
-        function drawPhaseDiagram() {
-            const ctx = document.getElementById('phaseDiagramChart').getContext('2d');
-            if (phaseDiagramChart) phaseDiagramChart.destroy();
-            const targetConc = parseFloat(document.getElementById('phase-conc-input').value);
-            const selectedModel = document.getElementById('model-selector').value;
-            document.getElementById('phase-diagram-model-info').textContent = `Diagram generated using the ${selectedModel} model to predict temperatures.`;
+        function getPhaseDiagramSystems() {
+            const allMixedSolvents = new Set();
+            const mixedSystemKeys = [];
+            const pureSystems = {};
+            let s1Name, s2Name;
 
-            if(isNaN(targetConc)) { alert("Please enter a valid concentration for the phase diagram."); return; }
-
-            const clearData = [];
-            const cloudData = [];
-            let solvent2Name = 'Solvent 2';
-
+            // First pass: identify all solvents and systems
             for (const system in dataBySystem) {
-                const systemData = dataBySystem[system];
-                const d = systemData[0]; // Use first point to get solvent info
-                if (d && d.s2Name) {
-                    solvent2Name = d.s2Name;
-                    const solModel = models[system] ? models[system].solubility[selectedModel] : null;
-                    const nucModel = models[system] ? models[system].nucleation[selectedModel] : null;
-                    if (solModel && nucModel) {
-                        const clearTemp = getTemperatureFromModel(targetConc, solModel);
-                        const cloudTemp = getTemperatureFromModel(targetConc, nucModel);
-                        if (!isNaN(clearTemp) && !isNaN(cloudTemp)) {
-                             clearData.push({x: d.s2Perc, y: clearTemp});
-                             cloudData.push({x: d.s2Perc, y: cloudTemp});
-                        }
-                    }
+                const d = dataBySystem[system][0];
+                if (d.s2Name && d.s2Perc > 0) {
+                    allMixedSolvents.add(d.s1Name);
+                    allMixedSolvents.add(d.s2Name);
+                    mixedSystemKeys.push(system);
+                } else {
+                    pureSystems[d.s1Name] = system;
                 }
             }
 
-            if(clearData.length < 2) { alert(`Not enough data points with a second solvent found to draw a diagram.`); return; }
+            const solventNames = Array.from(allMixedSolvents);
+            if (solventNames.length !== 2) {
+                return { error: "A phase diagram requires exactly two different solvents in the mixed systems." };
+            }
             
-            clearData.sort((a,b)=>a.x - b.x);
-            cloudData.sort((a,b)=>a.x - b.x);
+            // Define Solvent 1 and Solvent 2 consistently
+            s1Name = solventNames[0];
+            s2Name = solventNames[1];
 
-            const clearModel = regression.polynomial(clearData.map(p=>[p.x, p.y]), {order: 2});
-            const cloudModel = regression.polynomial(cloudData.map(p=>[p.x, p.y]), {order: 2});
+            // Find the corresponding pure systems
+            const pureSolvent1System = pureSystems[s1Name];
+            const pureSolvent2System = pureSystems[s2Name];
+
+            return {
+                solvent1Name: s1Name,
+                solvent2Name: s2Name,
+                mixedSystems: mixedSystemKeys,
+                pureSolvent1System: pureSolvent1System,
+                pureSolvent2System: pureSolvent2System
+            };
+        }
+
+        function drawPhaseDiagram() {
+            const ctx = document.getElementById('phaseDiagramChart').getContext('2d');
+            if (phaseDiagramChart) phaseDiagramChart.destroy();
             
-            const clearCurve = clearData.map(p => ({x: p.x, y: clearModel.predict(p.x)[1]}));
-            const cloudCurve = cloudData.map(p => ({x: p.x, y: cloudModel.predict(p.x)[1]}));
+            const analysisDiv = document.getElementById('phase-diagram-model-analysis');
+            analysisDiv.innerHTML = '';
 
+            const targetConc = parseFloat(document.getElementById('phase-conc-input').value);
+            if(isNaN(targetConc)) { 
+                analysisDiv.innerHTML = `<p class="error-msg">Please enter a valid concentration for the phase diagram.</p>`;
+                return; 
+            }
+
+            const modelType = document.getElementById('phase-diagram-model-selector').value;
+            const systems = getPhaseDiagramSystems();
+
+            if (systems.error) {
+                analysisDiv.innerHTML = `<p class="error-msg">${systems.error}</p>`;
+                return;
+            }
+            if (systems.mixedSystems.length === 0) {
+                analysisDiv.innerHTML = '<p class="error-msg">No data for mixed solvent systems found.</p>';
+                return;
+            }
+
+            const singleSolventModel = document.getElementById('model-selector').value;
+            let clearData = [];
+            let cloudData = [];
+
+            for (const system of systems.mixedSystems) {
+                const d = dataBySystem[system][0];
+                const solModel = models[system]?.solubility?.[singleSolventModel];
+                const nucModel = models[system]?.nucleation?.[singleSolventModel];
+                if (solModel && nucModel) {
+                    const clearTemp = getTemperatureFromModel(targetConc, solModel);
+                    const cloudTemp = getTemperatureFromModel(targetConc, nucModel);
+                    if (!isNaN(clearTemp) && !isNaN(cloudTemp)) {
+                         let s2PercForPlot = (d.s1Name === systems.solvent1Name) ? d.s2Perc : d.s1Perc;
+                         clearData.push({x: s2PercForPlot, y: clearTemp});
+                         cloudData.push({x: s2PercForPlot, y: cloudTemp});
+                    }
+                }
+            }
+            
+            let datasets = [
+                { label: `Solubility (Data)`, data: clearData, backgroundColor: 'rgb(21, 153, 172)', pointRadius: 6 },
+                { label: `Nucleation (Data)`, data: cloudData, backgroundColor: 'rgb(255, 99, 132)', pointRadius: 6, pointStyle: 'rect' }
+            ];
+
+            if (modelType === 'jouyban-acree' || modelType === 'ideal-mixture') {
+                if (!systems.pureSolvent1System || !systems.pureSolvent2System) {
+                    analysisDiv.innerHTML = `<p class="error-msg">This model requires data for both pure solvents (100% ${systems.solvent1Name} and 100% ${systems.solvent2Name}).</p>`;
+                    return;
+                }
+                
+                const fitResults = performJouybanAcreeFit(targetConc, systems);
+                if (!fitResults) return;
+
+                if (modelType === 'jouyban-acree') {
+                    const clearCurve = generateJouybanCurve(fitResults.clear.model);
+                    const cloudCurve = generateJouybanCurve(fitResults.cloud.model);
+                    datasets.push({ label: `Solubility Fit (J-A)`, data: clearCurve, type: 'line', borderColor: 'rgb(21, 153, 172)', borderWidth: 2, pointRadius: 0 });
+                    datasets.push({ label: `Nucleation Fit (J-A)`, data: cloudCurve, type: 'line', borderColor: 'rgb(255, 99, 132)', borderWidth: 2, pointRadius: 0, borderDash: [5,5] });
+                    displayJouybanResults(fitResults);
+                } else { // Ideal Mixture
+                    const idealClearModel = { T1: fitResults.clear.model.T1, T2: fitResults.clear.model.T2, A: [0,0,0] };
+                    const idealCloudModel = { T1: fitResults.cloud.model.T1, T2: fitResults.cloud.model.T2, A: [0,0,0] };
+                    const clearCurve = generateJouybanCurve(idealClearModel);
+                    const cloudCurve = generateJouybanCurve(idealCloudModel);
+                    datasets.push({ label: `Ideal Solubility`, data: clearCurve, type: 'line', borderColor: 'rgb(21, 153, 172)', borderWidth: 2, pointRadius: 0 });
+                    datasets.push({ label: `Ideal Nucleation`, data: cloudCurve, type: 'line', borderColor: 'rgb(255, 99, 132)', borderWidth: 2, pointRadius: 0, borderDash: [5,5] });
+                    analysisDiv.innerHTML = `<p style="font-size: smaller; font-style: italic; text-align: center;">The Ideal Mixture model (based on Yalkowsky-Roseman) shows the theoretical behavior without specific solvent interactions.</p>`;
+                }
+
+            } else { // Polynomial model
+                if(clearData.length < 2) { 
+                    analysisDiv.innerHTML = `<p class="error-msg">Not enough data points in mixed solvents to generate a polynomial diagram.</p>`;
+                    return; 
+                }
+                
+                clearData.sort((a,b)=>a.x - b.x);
+                cloudData.sort((a,b)=>a.x - b.x);
+
+                const clearFit = regression.polynomial(clearData.map(p=>[p.x, p.y]), {order: 2});
+                const cloudFit = regression.polynomial(cloudData.map(p=>[p.x, p.y]), {order: 2});
+                
+                const clearCurve = generatePolynomialCurve(clearFit, clearData);
+                const cloudCurve = generatePolynomialCurve(cloudFit, cloudData);
+
+                datasets.push({ label: `Solubility Fit`, data: clearCurve, type: 'line', borderColor: 'rgb(21, 153, 172)', borderWidth: 2, pointRadius: 0 });
+                datasets.push({ label: `Nucleation Fit`, data: cloudCurve, type: 'line', borderColor: 'rgb(255, 99, 132)', borderWidth: 2, pointRadius: 0, borderDash: [5,5] });
+                analysisDiv.innerHTML = `<p style="font-size: smaller; font-style: italic; text-align: center;">Diagram generated using a 2nd degree polynomial fit on the data predicted by the <b>${singleSolventModel}</b> model.</p>`;
+            }
+            
             phaseDiagramChart = new Chart(ctx, {
+                type: 'scatter',
+                data: { datasets: datasets },
+                options: getChartOptions(`Phase Diagram at C = ${targetConc}`, `% ${systems.solvent2Name}`, 'Temperature (°C)')
+            });
+            if(phaseDiagramChart) phaseDiagramChart.canvas.ondblclick = () => phaseDiagramChart.resetZoom();
+        }
+
+        function generatePolynomialCurve(fit, data) {
+            const minX = Math.min(...data.map(p => p.x));
+            const maxX = Math.max(...data.map(p => p.x));
+            const curve = [];
+            for (let i = 0; i <= 100; i++) {
+                const x = minX + (maxX - minX) * i / 100;
+                curve.push({x: x, y: fit.predict(x)[1]});
+            }
+            return curve;
+        }
+
+        function generateJouybanCurve(model) {
+            const curve = [];
+            for(let i=0; i<=100; i++) {
+                const f2 = i / 100;
+                const f1 = 1 - f2;
+                const tempK = getTempFromJouyban(f1, f2, model);
+                if(!isNaN(tempK)) {
+                    curve.push({x: i, y: tempK - 273.15});
+                }
+            }
+            return curve;
+        }
+
+        function displayJouybanResults(results) {
+            const analysisDiv = document.getElementById('phase-diagram-model-analysis');
+            let html = `<h4>Jouyban-Acree Model Analysis</h4>`;
+            html += `<p style="font-size: smaller; margin-bottom: 10px;">Equation: ln(T<sub>m</sub>) = f₁ln(T₁) + f₂ln(T₂) + f₁f₂[A₀ + A₁(f₁-f₂) + A₂(f₁-f₂)²]</p>`;
+            
+            html += `<b>Solubility Curve:</b><ul>`;
+            html += `<li>Interaction parameters: A₀=${results.clear.model.A[2].toFixed(3)}, A₁=${results.clear.model.A[1].toFixed(3)}, A₂=${results.clear.model.A[0].toFixed(3)}</li>`;
+            html += `<li>R² = ${results.clear.r2.toFixed(4)}</li></ul>`;
+
+            html += `<b>Nucleation Curve:</b><ul>`;
+            html += `<li>Interaction parameters: A₀=${results.cloud.model.A[2].toFixed(3)}, A₁=${results.cloud.model.A[1].toFixed(3)}, A₂=${results.cloud.model.A[0].toFixed(3)}</li>`;
+            html += `<li>R² = ${results.cloud.r2.toFixed(4)}</li></ul>`;
+
+            analysisDiv.innerHTML = html;
+        }
+
+        function getTempFromJouyban(f1, f2, model) {
+            const { T1, T2, A } = model;
+            const termJ = f1 * f2 * (A[2] + A[1] * (f1 - f2) + A[0] * Math.pow(f1 - f2, 2));
+            const lnTm = f1 * Math.log(T1) + f2 * Math.log(T2) + termJ;
+            return Math.exp(lnTm);
+        }
+
+        function performJouybanAcreeFit(targetConc, systems) {
+            const { pureSolvent1System, pureSolvent2System, mixedSystems, solvent1Name, solvent2Name } = systems;
+            const analysisDiv = document.getElementById('phase-diagram-model-analysis');
+            const singleSolventModel = document.getElementById('model-selector').value;
+
+            const modelS1 = models[pureSolvent1System]?.solubility?.[singleSolventModel];
+            const modelS2 = models[pureSolvent2System]?.solubility?.[singleSolventModel];
+            const modelN1 = models[pureSolvent1System]?.nucleation?.[singleSolventModel];
+            const modelN2 = models[pureSolvent2System]?.nucleation?.[singleSolventModel];
+
+            if (!modelS1 || !modelS2 || !modelN1 || !modelN2) {
+                analysisDiv.innerHTML = `<p class="error-msg">Fit model (${singleSolventModel}) not available for one of the pure solvents. Please select another fit model or add data.</p>`;
+                return null;
+            }
+
+            const T1_clear = getTemperatureFromModel(targetConc, modelS1) + 273.15;
+            const T2_clear = getTemperatureFromModel(targetConc, modelS2) + 273.15;
+            const T1_cloud = getTemperatureFromModel(targetConc, modelN1) + 273.15;
+            const T2_cloud = getTemperatureFromModel(targetConc, modelN2) + 273.15;
+
+            if (isNaN(T1_clear) || isNaN(T2_clear) || isNaN(T1_cloud) || isNaN(T2_cloud)) {
+                analysisDiv.innerHTML = `<p class="error-msg">Could not calculate temperature for the given concentration in one of the pure solvents.</p>`;
+                return null;
+            }
+
+            function fitCurve(T1_K, T2_K, curveType) {
+                const fitData = [];
+                const points = [];
+                for (const system of mixedSystems) {
+                    const d = dataBySystem[system][0];
+                    const model = models[system]?.[curveType]?.[singleSolventModel];
+                    if (model) {
+                        const Tm = getTemperatureFromModel(targetConc, model) + 273.15;
+                        if (isNaN(Tm)) continue;
+                        
+                        let f1, f2, s2PercForPlot;
+                        if (d.s1Name === solvent1Name) {
+                            f1 = d.s1Perc / 100;
+                            f2 = d.s2Perc / 100;
+                            s2PercForPlot = d.s2Perc;
+                        } else { // Swapped order
+                            f1 = d.s2Perc / 100;
+                            f2 = d.s1Perc / 100;
+                            s2PercForPlot = d.s1Perc;
+                        }
+
+                        if (f1 > 0 && f2 > 0) {
+                            const Y = (Math.log(Tm) - f1 * Math.log(T1_K) - f2 * Math.log(T2_K)) / (f1 * f2);
+                            const X = f1 - f2;
+                            fitData.push([X, Y]);
+                            points.push({x: s2PercForPlot, y: Tm - 273.15});
+                        }
+                    }
+                }
+                if (fitData.length < 3) return null; // Need at least 3 points for a 2nd order polynomial
+                
+                const result = regression.polynomial(fitData, { order: 2 });
+                return {
+                    points: points,
+                    r2: result.r2,
+                    model: { T1: T1_K, T2: T2_K, A: result.equation }
+                };
+            }
+
+            const clearFit = fitCurve(T1_clear, T2_clear, 'solubility');
+            const cloudFit = fitCurve(T1_cloud, T2_cloud, 'nucleation');
+
+            if (!clearFit || !cloudFit) {
+                analysisDiv.innerHTML = `<p class="error-msg">Insufficient data for Jouyban-Acree model fit. At least 3 points in mixed solvents are required.</p>`;
+                return null;
+            }
+
+            return { clear: clearFit, cloud: cloudFit };
+        }
+
+
+        // --- RESIDUALS ANALYSIS ---
+        function updateResidualsSelector() {
+            const selector = document.getElementById('residuals-selector');
+            selector.innerHTML = '';
+            const selectedSystem = document.getElementById('system-selector').value;
+
+            if (!models[selectedSystem]) return;
+
+            for (const curveType of ['solubility', 'nucleation']) {
+                for (const modelType of ['vanthoff', 'polynomial', 'linear']) {
+                    if (models[selectedSystem][curveType][modelType]) {
+                        const option = document.createElement('option');
+                        const curveName = curveType === 'solubility' ? 'Solubility' : 'Nucleation';
+                        const modelName = modelType.charAt(0).toUpperCase() + modelType.slice(1);
+                        option.value = `${curveType}-${modelType}`;
+                        option.text = `${curveName} - ${modelName}`;
+                        selector.appendChild(option);
+                    }
+                }
+            }
+        }
+
+        function drawResidualsChart() {
+            const ctx = document.getElementById('residualsChart').getContext('2d');
+            if (residualsChart) residualsChart.destroy();
+
+            const selector = document.getElementById('residuals-selector');
+            if (!selector.value) return;
+
+            const [curveType, modelType] = selector.value.split('-');
+            const selectedSystem = document.getElementById('system-selector').value;
+            const model = models[selectedSystem]?.[curveType]?.[modelType];
+
+            if (!model) return;
+
+            let residuals = [];
+            let xLabel = 'Temperature (°C)';
+            let yLabel = 'Residual (Concentration)';
+
+            if (model.type === 'vanthoff') {
+                xLabel = '1 / T (K⁻¹)';
+                yLabel = 'Residual (ln(C))';
+                model.transformedPoints.forEach(p => {
+                    const predictedY = model.slope * p[0] + model.intercept;
+                    residuals.push({ x: p[0], y: p[1] - predictedY });
+                });
+            } else {
+                model.points.forEach(p => {
+                    const predictedY = getConcentrationFromModel(p.x, model);
+                    residuals.push({ x: p.x, y: p.y - predictedY });
+                });
+            }
+
+            const title = `Residuals for ${selector.options[selector.selectedIndex].text}`;
+            if(residuals.length === 0) return;
+            
+            residualsChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Residuals',
+                        data: residuals,
+                        backgroundColor: '#6a0dad'
+                    }, {
+                        type: 'line',
+                        label: 'Zero Line',
+                        data: [{x: residuals[0].x, y: 0}, {x: residuals[residuals.length - 1].x, y: 0}],
+                        borderColor: 'black',
+                        borderWidth: 1,
+                        pointRadius: 0,
+                        fill: false
+                    }]
+                },
+                options: getChartOptions(title, xLabel, yLabel, { plugins: { legend: { display: false } } })
+            });
+        }
+        
+        // --- VAN'T HOFF ANALYSIS ---
+        function drawVanthoffChart() {
+            const ctx = document.getElementById('vanthoffChart').getContext('2d');
+            if (vanthoffChart) vanthoffChart.destroy();
+            
+            const selectedSystem = document.getElementById('system-selector').value;
+            if (!models[selectedSystem] || !models[selectedSystem].solubility.vanthoff || !models[selectedSystem].nucleation.vanthoff) {
+                return;
+            }
+
+            const solModel = models[selectedSystem].solubility.vanthoff;
+            const nucModel = models[selectedSystem].nucleation.vanthoff;
+
+            const solData = solModel.transformedPoints.map(p => ({x: p[0], y: p[1]}));
+            const nucData = nucModel.transformedPoints.map(p => ({x: p[0], y: p[1]}));
+
+            // Generate regression line data
+            const xMin = Math.min(...solData.map(p => p.x), ...nucData.map(p => p.x));
+            const xMax = Math.max(...solData.map(p => p.x), ...nucData.map(p => p.x));
+            const solLine = [{x: xMin, y: solModel.slope * xMin + solModel.intercept}, {x: xMax, y: solModel.slope * xMax + solModel.intercept}];
+            const nucLine = [{x: xMin, y: nucModel.slope * xMin + nucModel.intercept}, {x: xMax, y: nucModel.slope * xMax + nucModel.intercept}];
+
+            vanthoffChart = new Chart(ctx, {
                 type: 'scatter',
                 data: {
                     datasets: [
-                        { label: `Solubility (C=${targetConc})`, data: clearData, backgroundColor: 'rgb(21, 153, 172)', pointRadius: 6 },
-                        { label: `Nucleation (C=${targetConc})`, data: cloudData, backgroundColor: 'rgb(255, 99, 132)', pointRadius: 6, pointStyle: 'rect' },
-                        { label: `Solubility Fit`, data: clearCurve, type: 'line', borderColor: 'rgb(21, 153, 172)', borderWidth: 2, pointRadius: 0 },
-                        { label: `Nucleation Fit`, data: cloudCurve, type: 'line', borderColor: 'rgb(255, 99, 132)', borderWidth: 2, pointRadius: 0, borderDash: [5,5] },
+                        { label: 'Solubility Data', data: solData, backgroundColor: '#3e95cd', pointRadius: 5 },
+                        { label: 'Solubility Fit', data: solLine, type: 'line', borderColor: '#3e95cd', borderWidth: 2, pointRadius: 0 },
+                        { label: 'Nucleation Data', data: nucData, backgroundColor: '#c45850', pointStyle: 'rect', pointRadius: 5 },
+                        { label: 'Nucleation Fit', data: nucLine, type: 'line', borderColor: '#c45850', borderWidth: 2, borderDash: [5,5], pointRadius: 0 }
                     ]
                 },
-                options: getChartOptions(`Phase Diagram at C = ${targetConc}`, `% ${solvent2Name}`, 'Temperature (°C)')
+                options: getChartOptions(`Van't Hoff Plot for ${selectedSystem}`, '1 / T (K⁻¹)', 'ln(Concentration)')
             });
-            phaseDiagramChart.canvas.ondblclick = () => phaseDiagramChart.resetZoom();
+            vanthoffChart.canvas.ondblclick = () => vanthoffChart.resetZoom();
         }
+        
+        function updateVanthoffAnalysis() {
+            const resultsDiv = document.getElementById('vanthoff-analysis-results');
+            const selectedSystem = document.getElementById('system-selector').value;
+            if (!models[selectedSystem] || !models[selectedSystem].solubility.vanthoff) {
+                resultsDiv.innerHTML = '<p>Van \'t Hoff model or data not available for the selected system.</p>';
+                return;
+            }
+
+            const solModel = models[selectedSystem].solubility.vanthoff;
+            const nucModel = models[selectedSystem].nucleation.vanthoff;
+
+            // Solubility calculations
+            const deltaH_sol = -solModel.slope * R / 1000; // in kJ/mol
+            const deltaS_sol = solModel.intercept * R; // in J/mol·K
+
+            // Nucleation calculations
+            const deltaH_nuc = nucModel ? -nucModel.slope * R / 1000 : NaN; // in kJ/mol
+            const deltaS_nuc = nucModel ? nucModel.intercept * R : NaN; // in J/mol·K
+
+            let html = `<h4>Thermodynamic Parameters for: <span style="color: #005f73;">${selectedSystem}</span></h4>`;
+            html += `<b>Solubility Curve:</b><ul>`;
+            html += `<li><b>Enthalpy of Dissolution (ΔH):</b> <strong style="color: #0077b6;">${deltaH_sol.toFixed(2)} kJ/mol</strong></li>`;
+            html += `<li><b>Entropy of Dissolution (ΔS):</b> <strong style="color: #0077b6;">${deltaS_sol.toFixed(2)} J/mol·K</strong></li></ul>`;
+            
+            if (!isNaN(deltaH_nuc)) {
+                html += `<b>Nucleation Curve:</b><ul>`;
+                html += `<li><b>Enthalpy of Nucleation (ΔH<sub>nuc</sub>):</b> <strong style="color: #d9534f;">${deltaH_nuc.toFixed(2)} kJ/mol</strong></li>`;
+                html += `<li><b>Entropy of Nucleation (ΔS<sub>nuc</sub>):</b> <strong style="color: #d9534f;">${deltaS_nuc.toFixed(2)} J/mol·K</strong></li></ul>`;
+            }
+            
+            html += `<hr style="margin: 15px 0;"><h4>Solubility Model Equations</h4>`;
+            html += `<p><b>Linear Form (used for fitting):</b></p>`;
+            html += `<div class="equation">ln(C) = ${solModel.slope.toFixed(2)} * (1/T) + ${solModel.intercept.toFixed(2)}</div>`;
+            html += `<p style="margin-top:10px;"><b>Exponential Form (predictive):</b></p>`;
+            html += `<div class="equation">C = e<sup>${solModel.intercept.toFixed(2)}</sup> * e<sup>-(${(-solModel.slope).toFixed(0)}/T)</sup></div>`;
+
+
+            resultsDiv.innerHTML = html;
+        }
+
 
         // --- SESSION MANAGEMENT ---
         document.getElementById('saveSessionBtn').addEventListener('click', saveSession);
@@ -831,8 +1345,8 @@
 
             const blob = new Blob([JSON.stringify(sessionState, null, 2)], {type: 'application/json'});
             const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
             a.download = 'crystallization_session.json';
+            a.href = URL.createObjectURL(blob);
             a.click();
             URL.revokeObjectURL(a.href);
         }
@@ -861,6 +1375,7 @@
         // --- INITIAL EXECUTION ---
         document.addEventListener('DOMContentLoaded', () => {
             createRow(); // Start with one empty row
+            document.getElementById('residuals-selector').onchange = drawResidualsChart;
         });
     </script>
 </body>
