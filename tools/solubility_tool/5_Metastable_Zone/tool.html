@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crystallization Tool - v31 English Translation</title>
+    <title>Crystallization Tool - v33 English Translation</title>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
@@ -210,6 +210,12 @@
                             <option value="ideal-mixture">Ideal Mixture</option>
                             <option value="polynomial">Polynomial</option>
                         </select>
+                        <label for="phase-diagram-curve-selector" style="margin-left: 15px;">Show Curve:</label>
+                        <select id="phase-diagram-curve-selector">
+                            <option value="both">Solubility & Nucleation</option>
+                            <option value="solubility">Solubility Only (Clear)</option>
+                            <option value="nucleation">Nucleation Only (Cloud)</option>
+                        </select>
                         <button id="draw-phase-diagram-btn" style="margin-left: 15px;">Generate Diagram</button>
                     </div>
                     <div id="phase-diagram-model-analysis"></div>
@@ -336,8 +342,8 @@
                 const tempCloud = parseFloat(cells[7].innerText.replace(',', '.'));
 
                 // --- Validation and Cleanup ---
-                if (isNaN(concentration) || concentration <= 0 || isNaN(tempClear) || isNaN(tempCloud)) {
-                    return; // Skip row if core numbers are invalid
+                if (isNaN(concentration) || concentration <= 0 || (isNaN(tempClear) && isNaN(tempCloud))) {
+                    return; // Skip row if core numbers are invalid or no temp is provided
                 }
                 if (!solvent1Name && !solvent2Name) {
                     return; // Skip row if no solvent is named
@@ -348,7 +354,7 @@
                     solvent1Name = solvent2Name;
                     s1Perc = 100;
                     solvent2Name = '';
-                    s2Perc = 0;
+                    s2Perc = NaN; // Use NaN for empty values
                 }
                 
                 // Default percentages if not specified for a single solvent system
@@ -390,22 +396,22 @@
             for (const system in dataBySystem) {
                 logMessages.push(`--- Processing System: ${system} ---`);
                 const systemData = dataBySystem[system];
-                if (systemData.length < 2) {
-                    logMessages.push(`WARNING: System ${system} has fewer than 2 data points and will be skipped for modeling.`);
-                    continue;
-                }
-                systemData.sort((a,b) => a.conc - b.conc);
                 
-                const clearPoints = systemData.map(d => ({ x: d.clear, y: d.conc }));
-                const cloudPoints = systemData.map(d => ({ x: d.cloud, y: d.conc }));
+                const clearPoints = systemData.filter(d => !isNaN(d.clear)).map(d => ({ x: d.clear, y: d.conc }));
+                const cloudPoints = systemData.filter(d => !isNaN(d.cloud)).map(d => ({ x: d.cloud, y: d.conc }));
 
                 models[system] = { solubility: {}, nucleation: {} };
-                models[system].solubility.vanthoff = performVanthoffRegression(clearPoints, `${system}-Solubility`);
-                models[system].nucleation.vanthoff = performVanthoffRegression(cloudPoints, `${system}-Nucleation`);
-                models[system].solubility.polynomial = performPolynomialRegression(clearPoints, `${system}-Solubility`);
-                models[system].nucleation.polynomial = performPolynomialRegression(cloudPoints, `${system}-Nucleation`);
-                models[system].solubility.linear = performLinearRegression(clearPoints, `${system}-Solubility`);
-                models[system].nucleation.linear = performLinearRegression(cloudPoints, `${system}-Nucleation`);
+
+                if(clearPoints.length > 1) {
+                    models[system].solubility.vanthoff = performVanthoffRegression(clearPoints, `${system}-Solubility`);
+                    models[system].solubility.polynomial = performPolynomialRegression(clearPoints, `${system}-Solubility`);
+                    models[system].solubility.linear = performLinearRegression(clearPoints, `${system}-Solubility`);
+                }
+                if(cloudPoints.length > 1) {
+                    models[system].nucleation.vanthoff = performVanthoffRegression(cloudPoints, `${system}-Nucleation`);
+                    models[system].nucleation.polynomial = performPolynomialRegression(cloudPoints, `${system}-Nucleation`);
+                    models[system].nucleation.linear = performLinearRegression(cloudPoints, `${system}-Nucleation`);
+                }
             }
             
             updateSystemSelector();
@@ -461,8 +467,8 @@
         }
 
         function performVanthoffRegression(points, name) {
+            if (points.length < 2) { logMessages.push(`[${name} - Van't Hoff]: Insufficient data (requires >= 2 points).`); return null; }
             const transformed = points.map(p => [1 / (p.x + 273.15), Math.log(p.y)]);
-            if (transformed.length < 2) { logMessages.push(`[${name} - Van't Hoff]: Insufficient data (requires >= 2 points).`); return null; }
             const result = regression.linear(transformed);
             const model = { type: 'vanthoff', points: points, slope: result.equation[0], intercept: result.equation[1], r2: result.r2, equation: result.string, transformedPoints: transformed };
             model.ser = calculateSER(transformed, model, true);
@@ -471,8 +477,8 @@
         }
 
         function performPolynomialRegression(points, name) {
+            if (points.length < 3) { logMessages.push(`[${name} - Polynomial]: Insufficient data (requires >= 3 points).`); return null; }
             const data = points.map(p => [p.x, p.y]);
-            if (data.length < 3) { logMessages.push(`[${name} - Polynomial]: Insufficient data (requires >= 3 points).`); return null; }
             const result = regression.polynomial(data, { order: 2 });
             const model = { type: 'polynomial', points: points, coeffs: result.equation, r2: result.r2, equation: result.string };
             model.ser = calculateSER(points, model);
@@ -481,8 +487,8 @@
         }
 
         function performLinearRegression(points, name) {
+            if (points.length < 2) { logMessages.push(`[${name} - Linear]: Insufficient data (requires >= 2 points).`); return null; }
             const data = points.map(p => [p.x, p.y]);
-            if (data.length < 2) { logMessages.push(`[${name} - Linear]: Insufficient data (requires >= 2 points).`); return null; }
             const result = regression.linear(data, { precision: 4 });
             const model = { type: 'linear', points: points, coeffs: result.equation, r2: result.r2, equation: result.string };
             model.ser = calculateSER(points, model);
@@ -553,12 +559,14 @@
                 recommendationsDiv.innerHTML = `<p>Please enter a valid, positive concentration.</p>`;
                 logMessages.push(`ERROR: Invalid concentration.`); updateLog(); return;
             }
-            const solModel = models[selectedSystem] ? models[selectedSystem].solubility[selectedModel] : null;
-            const nucModel = models[selectedSystem] ? models[selectedSystem].nucleation[selectedModel] : null;
+            const solModel = models[selectedSystem]?.solubility?.[selectedModel];
+            const nucModel = models[selectedSystem]?.nucleation?.[selectedModel];
 
             if (!solModel || !nucModel) { 
-                recommendationsDiv.innerHTML = `<p>Model not available for the selected system/model type.</p>`;
-                logMessages.push(`ERROR: Model ${selectedModel} for ${selectedSystem} not available.`); updateLog(); return; 
+                recommendationsDiv.innerHTML = `<p>Model not available for the selected system/model type. Analysis requires both solubility and nucleation data.</p>`;
+                logMessages.push(`ERROR: Model ${selectedModel} for ${selectedSystem} not available for both curves.`); 
+                updateLog(); 
+                return; 
             };
 
             const T_clear = getTemperatureFromModel(targetConc, solModel);
@@ -611,7 +619,7 @@
             const endTemp = parseFloat(document.getElementById('yield-temp-end').value);
             const selectedSystem = document.getElementById('system-selector').value;
             const selectedModel = document.getElementById('model-selector').value;
-            const solModel = models[selectedSystem] ? models[selectedSystem].solubility[selectedModel] : null;
+            const solModel = models[selectedSystem]?.solubility?.[selectedModel];
             logMessages.push(`--- Yield Calculation for ${selectedSystem} with ${selectedModel} model ---`);
             logMessages.push(`C_start: ${startConc}, T_end: ${endTemp} °C`);
 
@@ -648,7 +656,7 @@
             const selectedSystem = document.getElementById('system-selector').value;
             
             function displayModel(model) {
-                if (!model) return "<p>No models available for this system.</p>";
+                if (Object.keys(model).length === 0) return "<p>No models available for this system (insufficient data).</p>";
                 let html = ``;
                 const vh = model.vanthoff;
                 const poly = model.polynomial;
@@ -666,10 +674,12 @@
                 if(Object.keys(availableModels).length > 1) {
                     const bestModel = Object.keys(availableModels).reduce((a, b) => availableModels[a] > availableModels[b] ? a : b);
                     html += `<p style="font-style:italic; margin-top:10px;">The <b>${bestModel}</b> model seems to be the best fit (highest R²).</p>`;
+                } else if (Object.keys(availableModels).length === 0) {
+                    return "<p>No models could be calculated for this system (insufficient data).</p>";
                 }
                 
                 html += `<p style="font-size:smaller; margin-top:10px; font-style:italic;">Note: SER (Standard Error of Regression) for Van't Hoff is in ln(C) units; for other models it is in Concentration units.</p>`
-                if (!poly) html += `<p style="font-style:italic; margin-top:5px; font-size:smaller;">Insufficient data for Polynomial model (requires at least 3 points).</p>`;
+                if (!poly && vh) html += `<p style="font-style:italic; margin-top:5px; font-size:smaller;">Insufficient data for Polynomial model (requires at least 3 points).</p>`;
                 
                 return html;
             }
@@ -848,12 +858,12 @@
                 }
 
                 const systemData = dataBySystem[system];
-                const clearData = systemData.map(d => ({x: d.clear, y: d.conc}));
-                const cloudData = systemData.map(d => ({x: d.cloud, y: d.conc}));
+                const clearData = systemData.filter(d => !isNaN(d.clear)).map(d => ({x: d.clear, y: d.conc}));
+                const cloudData = systemData.filter(d => !isNaN(d.cloud)).map(d => ({x: d.cloud, y: d.conc}));
                 const color = colorPalette[colorIndex % colorPalette.length];
                 
-                const solModel = models[system] ? models[system].solubility[selectedModel] : null;
-                const nucModel = models[system] ? models[system].nucleation[selectedModel] : null;
+                const solModel = models[system]?.solubility?.[selectedModel];
+                const nucModel = models[system]?.nucleation?.[selectedModel];
             
                 function generateModelCurve(model, dataPoints) {
                     if (!model || dataPoints.length === 0) return [];
@@ -874,10 +884,18 @@
                 const solCurve = generateModelCurve(solModel, clearData);
                 const nucCurve = generateModelCurve(nucModel, cloudData);
 
-                datasets.push({ label: `Solubility (${system})`, data: solCurve, type: 'line', borderColor: color, borderWidth: 2.5, pointRadius: 0, fill: showMSZWArea ? '+1' : false, backgroundColor: color.replace(')', ', 0.1)').replace('rgb', 'rgba') });
-                datasets.push({ label: `Nucleation (${system})`, data: nucCurve, type: 'line', borderColor: color, borderDash: [5,5], borderWidth: 2.5, pointRadius: 0 });
-                datasets.push({ label: `Clear Points (${system})`, data: clearData, backgroundColor: color, pointRadius: 5, type: 'scatter' });
-                datasets.push({ label: `Cloud Points (${system})`, data: cloudData, backgroundColor: color, pointStyle: 'rect', pointRadius: 5, type: 'scatter' });
+                if (solCurve.length > 0) {
+                    datasets.push({ label: `Solubility (${system})`, data: solCurve, type: 'line', borderColor: color, borderWidth: 2.5, pointRadius: 0, fill: showMSZWArea && nucCurve.length > 0 ? '+1' : false, backgroundColor: color.replace(')', ', 0.1)').replace('rgb', 'rgba') });
+                }
+                if (nucCurve.length > 0) {
+                    datasets.push({ label: `Nucleation (${system})`, data: nucCurve, type: 'line', borderColor: color, borderDash: [5,5], borderWidth: 2.5, pointRadius: 0 });
+                }
+                if (clearData.length > 0) {
+                    datasets.push({ label: `Clear Points (${system})`, data: clearData, backgroundColor: color, pointRadius: 5, type: 'scatter' });
+                }
+                if (cloudData.length > 0) {
+                    datasets.push({ label: `Cloud Points (${system})`, data: cloudData, backgroundColor: color, pointStyle: 'rect', pointRadius: 5, type: 'scatter' });
+                }
                 
                 colorIndex++;
             }
@@ -946,6 +964,7 @@
             }
 
             const modelType = document.getElementById('phase-diagram-model-selector').value;
+            const curveTypeToShow = document.getElementById('phase-diagram-curve-selector').value;
             const systems = getPhaseDiagramSystems();
 
             if (systems.error) {
@@ -963,23 +982,27 @@
 
             for (const system of systems.mixedSystems) {
                 const d = dataBySystem[system][0];
-                const solModel = models[system]?.solubility?.[singleSolventModel];
-                const nucModel = models[system]?.nucleation?.[singleSolventModel];
-                if (solModel && nucModel) {
-                    const clearTemp = getTemperatureFromModel(targetConc, solModel);
-                    const cloudTemp = getTemperatureFromModel(targetConc, nucModel);
-                    if (!isNaN(clearTemp) && !isNaN(cloudTemp)) {
-                         let s2PercForPlot = (d.s1Name === systems.solvent1Name) ? d.s2Perc : d.s1Perc;
-                         clearData.push({x: s2PercForPlot, y: clearTemp});
-                         cloudData.push({x: s2PercForPlot, y: cloudTemp});
+                let s2PercForPlot = (d.s1Name === systems.solvent1Name) ? d.s2Perc : d.s1Perc;
+
+                if (curveTypeToShow === 'solubility' || curveTypeToShow === 'both') {
+                    const solModel = models[system]?.solubility?.[singleSolventModel];
+                    if(solModel) {
+                        const clearTemp = getTemperatureFromModel(targetConc, solModel);
+                        if (!isNaN(clearTemp)) clearData.push({x: s2PercForPlot, y: clearTemp});
+                    }
+                }
+                if (curveTypeToShow === 'nucleation' || curveTypeToShow === 'both') {
+                    const nucModel = models[system]?.nucleation?.[singleSolventModel];
+                    if(nucModel) {
+                        const cloudTemp = getTemperatureFromModel(targetConc, nucModel);
+                        if (!isNaN(cloudTemp)) cloudData.push({x: s2PercForPlot, y: cloudTemp});
                     }
                 }
             }
             
-            let datasets = [
-                { label: `Solubility (Data)`, data: clearData, backgroundColor: 'rgb(21, 153, 172)', pointRadius: 6 },
-                { label: `Nucleation (Data)`, data: cloudData, backgroundColor: 'rgb(255, 99, 132)', pointRadius: 6, pointStyle: 'rect' }
-            ];
+            let datasets = [];
+            if (clearData.length > 0) datasets.push({ label: `Solubility (Data)`, data: clearData, backgroundColor: 'rgb(21, 153, 172)', pointRadius: 6 });
+            if (cloudData.length > 0) datasets.push({ label: `Nucleation (Data)`, data: cloudData, backgroundColor: 'rgb(255, 99, 132)', pointRadius: 6, pointStyle: 'rect' });
 
             if (modelType === 'jouyban-acree' || modelType === 'ideal-mixture') {
                 if (!systems.pureSolvent1System || !systems.pureSolvent2System) {
@@ -991,38 +1014,42 @@
                 if (!fitResults) return;
 
                 if (modelType === 'jouyban-acree') {
-                    const clearCurve = generateJouybanCurve(fitResults.clear.model);
-                    const cloudCurve = generateJouybanCurve(fitResults.cloud.model);
-                    datasets.push({ label: `Solubility Fit (J-A)`, data: clearCurve, type: 'line', borderColor: 'rgb(21, 153, 172)', borderWidth: 2, pointRadius: 0 });
-                    datasets.push({ label: `Nucleation Fit (J-A)`, data: cloudCurve, type: 'line', borderColor: 'rgb(255, 99, 132)', borderWidth: 2, pointRadius: 0, borderDash: [5,5] });
+                    if (fitResults.clear && (curveTypeToShow === 'solubility' || curveTypeToShow === 'both')) {
+                        const clearCurve = generateJouybanCurve(fitResults.clear.model);
+                        datasets.push({ label: `Solubility Fit (J-A)`, data: clearCurve, type: 'line', borderColor: 'rgb(21, 153, 172)', borderWidth: 2, pointRadius: 0 });
+                    }
+                    if (fitResults.cloud && (curveTypeToShow === 'nucleation' || curveTypeToShow === 'both')) {
+                        const cloudCurve = generateJouybanCurve(fitResults.cloud.model);
+                        datasets.push({ label: `Nucleation Fit (J-A)`, data: cloudCurve, type: 'line', borderColor: 'rgb(255, 99, 132)', borderWidth: 2, pointRadius: 0, borderDash: [5,5] });
+                    }
                     displayJouybanResults(fitResults);
                 } else { // Ideal Mixture
-                    const idealClearModel = { T1: fitResults.clear.model.T1, T2: fitResults.clear.model.T2, A: [0,0,0] };
-                    const idealCloudModel = { T1: fitResults.cloud.model.T1, T2: fitResults.cloud.model.T2, A: [0,0,0] };
-                    const clearCurve = generateJouybanCurve(idealClearModel);
-                    const cloudCurve = generateJouybanCurve(idealCloudModel);
-                    datasets.push({ label: `Ideal Solubility`, data: clearCurve, type: 'line', borderColor: 'rgb(21, 153, 172)', borderWidth: 2, pointRadius: 0 });
-                    datasets.push({ label: `Ideal Nucleation`, data: cloudCurve, type: 'line', borderColor: 'rgb(255, 99, 132)', borderWidth: 2, pointRadius: 0, borderDash: [5,5] });
+                    if (fitResults.clear && (curveTypeToShow === 'solubility' || curveTypeToShow === 'both')) {
+                        const idealClearModel = { T1: fitResults.clear.model.T1, T2: fitResults.clear.model.T2, A: [0,0,0] };
+                        const clearCurve = generateJouybanCurve(idealClearModel);
+                        datasets.push({ label: `Ideal Solubility`, data: clearCurve, type: 'line', borderColor: 'rgb(21, 153, 172)', borderWidth: 2, pointRadius: 0 });
+                    }
+                    if (fitResults.cloud && (curveTypeToShow === 'nucleation' || curveTypeToShow === 'both')) {
+                        const idealCloudModel = { T1: fitResults.cloud.model.T1, T2: fitResults.cloud.model.T2, A: [0,0,0] };
+                        const cloudCurve = generateJouybanCurve(idealCloudModel);
+                        datasets.push({ label: `Ideal Nucleation`, data: cloudCurve, type: 'line', borderColor: 'rgb(255, 99, 132)', borderWidth: 2, pointRadius: 0, borderDash: [5,5] });
+                    }
                     analysisDiv.innerHTML = `<p style="font-size: smaller; font-style: italic; text-align: center;">The Ideal Mixture model (based on Yalkowsky-Roseman) shows the theoretical behavior without specific solvent interactions.</p>`;
                 }
 
             } else { // Polynomial model
-                if(clearData.length < 2) { 
-                    analysisDiv.innerHTML = `<p class="error-msg">Not enough data points in mixed solvents to generate a polynomial diagram.</p>`;
-                    return; 
+                if(clearData.length >= 2 && (curveTypeToShow === 'solubility' || curveTypeToShow === 'both')) {
+                    clearData.sort((a,b)=>a.x - b.x);
+                    const clearFit = regression.polynomial(clearData.map(p=>[p.x, p.y]), {order: 2});
+                    const clearCurve = generatePolynomialCurve(clearFit, clearData);
+                    datasets.push({ label: `Solubility Fit`, data: clearCurve, type: 'line', borderColor: 'rgb(21, 153, 172)', borderWidth: 2, pointRadius: 0 });
                 }
-                
-                clearData.sort((a,b)=>a.x - b.x);
-                cloudData.sort((a,b)=>a.x - b.x);
-
-                const clearFit = regression.polynomial(clearData.map(p=>[p.x, p.y]), {order: 2});
-                const cloudFit = regression.polynomial(cloudData.map(p=>[p.x, p.y]), {order: 2});
-                
-                const clearCurve = generatePolynomialCurve(clearFit, clearData);
-                const cloudCurve = generatePolynomialCurve(cloudFit, cloudData);
-
-                datasets.push({ label: `Solubility Fit`, data: clearCurve, type: 'line', borderColor: 'rgb(21, 153, 172)', borderWidth: 2, pointRadius: 0 });
-                datasets.push({ label: `Nucleation Fit`, data: cloudCurve, type: 'line', borderColor: 'rgb(255, 99, 132)', borderWidth: 2, pointRadius: 0, borderDash: [5,5] });
+                 if(cloudData.length >= 2 && (curveTypeToShow === 'nucleation' || curveTypeToShow === 'both')) {
+                    cloudData.sort((a,b)=>a.x - b.x);
+                    const cloudFit = regression.polynomial(cloudData.map(p=>[p.x, p.y]), {order: 2});
+                    const cloudCurve = generatePolynomialCurve(cloudFit, cloudData);
+                    datasets.push({ label: `Nucleation Fit`, data: cloudCurve, type: 'line', borderColor: 'rgb(255, 99, 132)', borderWidth: 2, pointRadius: 0, borderDash: [5,5] });
+                }
                 analysisDiv.innerHTML = `<p style="font-size: smaller; font-style: italic; text-align: center;">Diagram generated using a 2nd degree polynomial fit on the data predicted by the <b>${singleSolventModel}</b> model.</p>`;
             }
             
@@ -1063,13 +1090,17 @@
             let html = `<h4>Jouyban-Acree Model Analysis</h4>`;
             html += `<p style="font-size: smaller; margin-bottom: 10px;">Equation: ln(T<sub>m</sub>) = f₁ln(T₁) + f₂ln(T₂) + f₁f₂[A₀ + A₁(f₁-f₂) + A₂(f₁-f₂)²]</p>`;
             
-            html += `<b>Solubility Curve:</b><ul>`;
-            html += `<li>Interaction parameters: A₀=${results.clear.model.A[2].toFixed(3)}, A₁=${results.clear.model.A[1].toFixed(3)}, A₂=${results.clear.model.A[0].toFixed(3)}</li>`;
-            html += `<li>R² = ${results.clear.r2.toFixed(4)}</li></ul>`;
+            if (results.clear) {
+                html += `<b>Solubility Curve:</b><ul>`;
+                html += `<li>Interaction parameters: A₀=${results.clear.model.A[2].toFixed(3)}, A₁=${results.clear.model.A[1].toFixed(3)}, A₂=${results.clear.model.A[0].toFixed(3)}</li>`;
+                html += `<li>R² = ${results.clear.r2.toFixed(4)}</li></ul>`;
+            }
 
-            html += `<b>Nucleation Curve:</b><ul>`;
-            html += `<li>Interaction parameters: A₀=${results.cloud.model.A[2].toFixed(3)}, A₁=${results.cloud.model.A[1].toFixed(3)}, A₂=${results.cloud.model.A[0].toFixed(3)}</li>`;
-            html += `<li>R² = ${results.cloud.r2.toFixed(4)}</li></ul>`;
+            if (results.cloud) {
+                html += `<b>Nucleation Curve:</b><ul>`;
+                html += `<li>Interaction parameters: A₀=${results.cloud.model.A[2].toFixed(3)}, A₁=${results.cloud.model.A[1].toFixed(3)}, A₂=${results.cloud.model.A[0].toFixed(3)}</li>`;
+                html += `<li>R² = ${results.cloud.r2.toFixed(4)}</li></ul>`;
+            }
 
             analysisDiv.innerHTML = html;
         }
@@ -1091,22 +1122,19 @@
             const modelN1 = models[pureSolvent1System]?.nucleation?.[singleSolventModel];
             const modelN2 = models[pureSolvent2System]?.nucleation?.[singleSolventModel];
 
-            if (!modelS1 || !modelS2 || !modelN1 || !modelN2) {
-                analysisDiv.innerHTML = `<p class="error-msg">Fit model (${singleSolventModel}) not available for one of the pure solvents. Please select another fit model or add data.</p>`;
+            if ((!modelS1 || !modelS2) && (!modelN1 || !modelN2)) {
+                analysisDiv.innerHTML = `<p class="error-msg">Fit model (${singleSolventModel}) not available for the pure solvents. Please select another fit model or add data.</p>`;
                 return null;
             }
 
-            const T1_clear = getTemperatureFromModel(targetConc, modelS1) + 273.15;
-            const T2_clear = getTemperatureFromModel(targetConc, modelS2) + 273.15;
-            const T1_cloud = getTemperatureFromModel(targetConc, modelN1) + 273.15;
-            const T2_cloud = getTemperatureFromModel(targetConc, modelN2) + 273.15;
-
-            if (isNaN(T1_clear) || isNaN(T2_clear) || isNaN(T1_cloud) || isNaN(T2_cloud)) {
-                analysisDiv.innerHTML = `<p class="error-msg">Could not calculate temperature for the given concentration in one of the pure solvents.</p>`;
-                return null;
-            }
+            const T1_clear = modelS1 ? getTemperatureFromModel(targetConc, modelS1) + 273.15 : NaN;
+            const T2_clear = modelS2 ? getTemperatureFromModel(targetConc, modelS2) + 273.15 : NaN;
+            const T1_cloud = modelN1 ? getTemperatureFromModel(targetConc, modelN1) + 273.15 : NaN;
+            const T2_cloud = modelN2 ? getTemperatureFromModel(targetConc, modelN2) + 273.15 : NaN;
 
             function fitCurve(T1_K, T2_K, curveType) {
+                if(isNaN(T1_K) || isNaN(T2_K)) return null;
+
                 const fitData = [];
                 const points = [];
                 for (const system of mixedSystems) {
@@ -1148,8 +1176,8 @@
             const clearFit = fitCurve(T1_clear, T2_clear, 'solubility');
             const cloudFit = fitCurve(T1_cloud, T2_cloud, 'nucleation');
 
-            if (!clearFit || !cloudFit) {
-                analysisDiv.innerHTML = `<p class="error-msg">Insufficient data for Jouyban-Acree model fit. At least 3 points in mixed solvents are required.</p>`;
+            if (!clearFit && !cloudFit) {
+                analysisDiv.innerHTML = `<p class="error-msg">Insufficient data for Jouyban-Acree model fit. At least 3 points in mixed solvents are required for the selected curve type.</p>`;
                 return null;
             }
 
@@ -1240,32 +1268,33 @@
             if (vanthoffChart) vanthoffChart.destroy();
             
             const selectedSystem = document.getElementById('system-selector').value;
-            if (!models[selectedSystem] || !models[selectedSystem].solubility.vanthoff || !models[selectedSystem].nucleation.vanthoff) {
-                return;
-            }
+            if (!models[selectedSystem]) return;
 
             const solModel = models[selectedSystem].solubility.vanthoff;
             const nucModel = models[selectedSystem].nucleation.vanthoff;
 
-            const solData = solModel.transformedPoints.map(p => ({x: p[0], y: p[1]}));
-            const nucData = nucModel.transformedPoints.map(p => ({x: p[0], y: p[1]}));
+            const datasets = [];
+            if(solModel) {
+                const solData = solModel.transformedPoints.map(p => ({x: p[0], y: p[1]}));
+                const xMin = Math.min(...solData.map(p => p.x));
+                const xMax = Math.max(...solData.map(p => p.x));
+                const solLine = [{x: xMin, y: solModel.slope * xMin + solModel.intercept}, {x: xMax, y: solModel.slope * xMax + solModel.intercept}];
+                datasets.push({ label: 'Solubility Data', data: solData, backgroundColor: '#3e95cd', pointRadius: 5 });
+                datasets.push({ label: 'Solubility Fit', data: solLine, type: 'line', borderColor: '#3e95cd', borderWidth: 2, pointRadius: 0 });
+            }
+            if(nucModel) {
+                const nucData = nucModel.transformedPoints.map(p => ({x: p[0], y: p[1]}));
+                 const xMin = Math.min(...nucData.map(p => p.x));
+                const xMax = Math.max(...nucData.map(p => p.x));
+                const nucLine = [{x: xMin, y: nucModel.slope * xMin + nucModel.intercept}, {x: xMax, y: nucModel.slope * xMax + nucModel.intercept}];
+                datasets.push({ label: 'Nucleation Data', data: nucData, backgroundColor: '#c45850', pointStyle: 'rect', pointRadius: 5 });
+                datasets.push({ label: 'Nucleation Fit', data: nucLine, type: 'line', borderColor: '#c45850', borderWidth: 2, borderDash: [5,5], pointRadius: 0 });
+            }
 
-            // Generate regression line data
-            const xMin = Math.min(...solData.map(p => p.x), ...nucData.map(p => p.x));
-            const xMax = Math.max(...solData.map(p => p.x), ...nucData.map(p => p.x));
-            const solLine = [{x: xMin, y: solModel.slope * xMin + solModel.intercept}, {x: xMax, y: solModel.slope * xMax + solModel.intercept}];
-            const nucLine = [{x: xMin, y: nucModel.slope * xMin + nucModel.intercept}, {x: xMax, y: nucModel.slope * xMax + nucModel.intercept}];
 
             vanthoffChart = new Chart(ctx, {
                 type: 'scatter',
-                data: {
-                    datasets: [
-                        { label: 'Solubility Data', data: solData, backgroundColor: '#3e95cd', pointRadius: 5 },
-                        { label: 'Solubility Fit', data: solLine, type: 'line', borderColor: '#3e95cd', borderWidth: 2, pointRadius: 0 },
-                        { label: 'Nucleation Data', data: nucData, backgroundColor: '#c45850', pointStyle: 'rect', pointRadius: 5 },
-                        { label: 'Nucleation Fit', data: nucLine, type: 'line', borderColor: '#c45850', borderWidth: 2, borderDash: [5,5], pointRadius: 0 }
-                    ]
-                },
+                data: { datasets: datasets },
                 options: getChartOptions(`Van't Hoff Plot for ${selectedSystem}`, '1 / T (K⁻¹)', 'ln(Concentration)')
             });
             vanthoffChart.canvas.ondblclick = () => vanthoffChart.resetZoom();
@@ -1274,40 +1303,36 @@
         function updateVanthoffAnalysis() {
             const resultsDiv = document.getElementById('vanthoff-analysis-results');
             const selectedSystem = document.getElementById('system-selector').value;
-            if (!models[selectedSystem] || !models[selectedSystem].solubility.vanthoff) {
-                resultsDiv.innerHTML = '<p>Van \'t Hoff model or data not available for the selected system.</p>';
+            if (!models[selectedSystem]) {
+                resultsDiv.innerHTML = '<p>Data not available for the selected system.</p>';
                 return;
             }
 
             const solModel = models[selectedSystem].solubility.vanthoff;
             const nucModel = models[selectedSystem].nucleation.vanthoff;
-
-            // Solubility calculations
-            const deltaH_sol = -solModel.slope * R / 1000; // in kJ/mol
-            const deltaS_sol = solModel.intercept * R; // in J/mol·K
-
-            // Nucleation calculations
-            const deltaH_nuc = nucModel ? -nucModel.slope * R / 1000 : NaN; // in kJ/mol
-            const deltaS_nuc = nucModel ? nucModel.intercept * R : NaN; // in J/mol·K
-
             let html = `<h4>Thermodynamic Parameters for: <span style="color: #005f73;">${selectedSystem}</span></h4>`;
-            html += `<b>Solubility Curve:</b><ul>`;
-            html += `<li><b>Enthalpy of Dissolution (ΔH):</b> <strong style="color: #0077b6;">${deltaH_sol.toFixed(2)} kJ/mol</strong></li>`;
-            html += `<li><b>Entropy of Dissolution (ΔS):</b> <strong style="color: #0077b6;">${deltaS_sol.toFixed(2)} J/mol·K</strong></li></ul>`;
+
+            if(solModel) {
+                const deltaH_sol = -solModel.slope * R / 1000; // in kJ/mol
+                const deltaS_sol = solModel.intercept * R; // in J/mol·K
+                html += `<b>Solubility Curve:</b><ul>`;
+                html += `<li><b>Enthalpy of Dissolution (ΔH):</b> <strong style="color: #0077b6;">${deltaH_sol.toFixed(2)} kJ/mol</strong></li>`;
+                html += `<li><b>Entropy of Dissolution (ΔS):</b> <strong style="color: #0077b6;">${deltaS_sol.toFixed(2)} J/mol·K</strong></li></ul>`;
+                html += `<hr style="margin: 15px 0;"><h4>Solubility Model Equations</h4>`;
+                html += `<p><b>Linear Form (used for fitting):</b></p>`;
+                html += `<div class="equation">ln(C) = ${solModel.slope.toFixed(2)} * (1/T) + ${solModel.intercept.toFixed(2)}</div>`;
+                html += `<p style="margin-top:10px;"><b>Exponential Form (predictive):</b></p>`;
+                html += `<div class="equation">C = e<sup>${solModel.intercept.toFixed(2)}</sup> * e<sup>-(${(-solModel.slope).toFixed(0)}/T)</sup></div>`;
+            }
             
-            if (!isNaN(deltaH_nuc)) {
-                html += `<b>Nucleation Curve:</b><ul>`;
+            if (nucModel) {
+                const deltaH_nuc = -nucModel.slope * R / 1000; // in kJ/mol
+                const deltaS_nuc = nucModel.intercept * R; // in J/mol·K
+                html += `<hr style="margin: 15px 0;"><b>Nucleation Curve:</b><ul>`;
                 html += `<li><b>Enthalpy of Nucleation (ΔH<sub>nuc</sub>):</b> <strong style="color: #d9534f;">${deltaH_nuc.toFixed(2)} kJ/mol</strong></li>`;
                 html += `<li><b>Entropy of Nucleation (ΔS<sub>nuc</sub>):</b> <strong style="color: #d9534f;">${deltaS_nuc.toFixed(2)} J/mol·K</strong></li></ul>`;
             }
             
-            html += `<hr style="margin: 15px 0;"><h4>Solubility Model Equations</h4>`;
-            html += `<p><b>Linear Form (used for fitting):</b></p>`;
-            html += `<div class="equation">ln(C) = ${solModel.slope.toFixed(2)} * (1/T) + ${solModel.intercept.toFixed(2)}</div>`;
-            html += `<p style="margin-top:10px;"><b>Exponential Form (predictive):</b></p>`;
-            html += `<div class="equation">C = e<sup>${solModel.intercept.toFixed(2)}</sup> * e<sup>-(${(-solModel.slope).toFixed(0)}/T)</sup></div>`;
-
-
             resultsDiv.innerHTML = html;
         }
 
@@ -1380,3 +1405,5 @@
     </script>
 </body>
 </html>
+
+
